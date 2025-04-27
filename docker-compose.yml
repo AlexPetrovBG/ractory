@@ -7,29 +7,75 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://rafactory_rw:StrongP@ss!@db/rafactory
+      - DATABASE_URL=postgresql+asyncpg://rafactory_rw:R4fDBP4ssw0rd9X@db_dev:5432/rafactory_dev
       - JWT_SECRET=dev_secret_change_in_production
     depends_on:
-      - db
-    profiles: ["dev", "staging", "test"]
+      - db_dev
+    profiles: ["dev"]
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+  
+  api_prod:
+    image: prod-api:latest
+    depends_on:
+      - db_prod
+    networks:
+      - prod_default
+    profiles: ["prod"]
+    # Production config is managed in prod/docker-compose.yml
     
-  db:
+  # Database services - Separated by environment
+  db_dev:
     image: postgres:15-alpine
     environment:
-      - POSTGRES_DB=rafactory
+      - POSTGRES_DB=rafactory_dev
       - POSTGRES_USER=rafactory_rw
-      - POSTGRES_PASSWORD=StrongP@ss!
+      - POSTGRES_PASSWORD=R4fDBP4ssw0rd9X
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata_dev:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5434:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rafactory_rw -d rafactory"]
+      test: ["CMD-SHELL", "pg_isready -U rafactory_rw -d rafactory_dev"]
       interval: 5s
       timeout: 5s
       retries: 5
-    profiles: ["dev", "staging", "test", "prod"]
+    profiles: ["dev"]
+  
+  db_prod:
+    image: postgres:15-alpine
+    networks:
+      - prod_default
+    profiles: ["prod"]
+    # Production DB is managed in prod/docker-compose.yml
+    
+  # Test environment
+  db_test:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=rafactory_test
+      - POSTGRES_USER=rafactory_rw
+      - POSTGRES_PASSWORD=R4fDBP4ssw0rd9X
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rafactory_rw -d rafactory_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    profiles: ["test"]
+    tmpfs:
+      - /var/lib/postgresql/data
+  
+  api_test:
+    build: ./backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://rafactory_rw:R4fDBP4ssw0rd9X@db_test:5432/rafactory_test
+      - JWT_SECRET=test_secret_not_secure
+      - TESTING=True
+    depends_on:
+      - db_test
+    profiles: ["test"]
+    command: ["pytest", "-v"]
     
   # Frontend services
   admin:
@@ -53,4 +99,9 @@ services:
     profiles: ["dev"]
     
 volumes:
-  pgdata: 
+  pgdata_dev:
+
+networks:
+  prod_default:
+    external: true
+    name: prod_default 
