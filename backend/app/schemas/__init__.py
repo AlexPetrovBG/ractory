@@ -23,4 +23,16 @@ from app.schemas.sync.main import (
     # Articles
     ArticleBase, ArticleCreate, ArticleBulkInsert,
     ArticleResponse
+)
+
+# User schemas
+from app.schemas.user import (
+    UserBase, UserCreate, UserUpdate,
+    UserInDB, UserResponse
+)
+
+# Workstation schemas
+from app.schemas.workstation import (
+    WorkstationBase, WorkstationCreate, WorkstationUpdate,
+    WorkstationInDB, WorkstationResponse
 ) 

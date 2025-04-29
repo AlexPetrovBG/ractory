@@ -7,7 +7,7 @@ class ProjectBase(BaseModel):
     """Base schema for Project fields."""
     code: str
     creation_date: datetime
-    modified_date: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     due_date: Optional[datetime] = None
     check_sum: Optional[str] = None
     in_production: bool = False
@@ -17,6 +17,7 @@ class ProjectCreate(ProjectBase):
     """Schema for creating a Project."""
     id: int
     company_guid: Optional[str] = None  # Will be set from token if not provided
+    updated_at: Optional[datetime] = None
 
 class ProjectBulkInsert(BaseModel):
     """Schema for bulk inserting Projects."""
@@ -27,6 +28,7 @@ class ProjectResponse(ProjectBase):
     id: int
     company_guid: str
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True

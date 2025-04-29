@@ -21,23 +21,23 @@ class SyncService:
     """
     
     @staticmethod
-    async def sync_projects(projects_data: List[Dict[str, Any]], company_guid: str, session: AsyncSession) -> Dict[str, int]:
-        # Add company_guid to each record
+    async def sync_projects(projects_data: List[ProjectCreate], company_guid: str, session: AsyncSession) -> Dict[str, int]:
+        # Convert ProjectCreate objects to dicts and add company_guid
+        projects_dicts = []
         for p in projects_data:
-            p['company_guid'] = company_guid
-            
-        stmt = insert(Project).values(projects_data)
+            d = p.dict()
+            d['company_guid'] = company_guid
+            projects_dicts.append(d)
+        
+        stmt = insert(Project).values(projects_dicts)
         stmt = stmt.on_conflict_do_update(
             index_elements=[Project.id], # Assuming 'id' is the RaConnect primary key
             set_={c.name: getattr(stmt.excluded, c.name) 
                   for c in Project.__table__.columns if c.name != 'id'}
         )
         result = await session.execute(stmt)
-        # rowcount might not be reliable for inserts/updates with ON CONFLICT in asyncpg
-        # We might need a more sophisticated way to count inserts vs updates if needed
-        # For now, returning a placeholder
         await session.commit()
-        return {"inserted_or_updated": len(projects_data)} # Placeholder count
+        return {"inserted_or_updated": len(projects_dicts)} # Placeholder count
     
     @staticmethod
     async def sync_components(components_data: List[Dict[str, Any]], company_guid: str, session: AsyncSession) -> Dict[str, int]:
