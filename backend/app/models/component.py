@@ -14,15 +14,16 @@ class Component(Base):
     id_project = Column(Integer, ForeignKey("projects.id"), nullable=False)
     quantity = Column(Integer, nullable=False, default=1)
     picture = Column(LargeBinary, nullable=True)
-    created_date = Column(DateTime(timezone=True), nullable=False)
     company_guid = Column(UUID(as_uuid=True), ForeignKey("companies.guid"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     project = relationship("Project", back_populates="components")
     assemblies = relationship("Assembly", back_populates="component")
     articles = relationship("Article", back_populates="component")
-    # pieces = relationship("Piece", back_populates="component") # Direct relation might not be needed
+    pieces = relationship("Piece", back_populates="component")
+    company = relationship("Company", back_populates="components")
     
     def __repr__(self):
         return f"<Component id={self.id}, code={self.code}, project_id={self.id_project}>" 

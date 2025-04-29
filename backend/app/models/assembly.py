@@ -17,11 +17,13 @@ class Assembly(Base):
     picture = Column(LargeBinary, nullable=True)
     company_guid = Column(UUID(as_uuid=True), ForeignKey("companies.guid"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
-    project = relationship("Project") # Should reference project directly?
+    project = relationship("Project", back_populates="assemblies")
     component = relationship("Component", back_populates="assemblies")
     pieces = relationship("Piece", back_populates="assembly")
+    company = relationship("Company", back_populates="assemblies")
     
     def __repr__(self):
         return f"<Assembly id={self.id}, component_id={self.id_component}>" 

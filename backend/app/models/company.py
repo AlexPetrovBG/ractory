@@ -27,6 +27,10 @@ class Company(Base):
     projects = relationship("Project", back_populates="company")
     api_keys = relationship("ApiKey", back_populates="company") # Added from tables.py
     workstations = relationship("Workstation", back_populates="company") # Added from tables.py
+    articles = relationship("Article", back_populates="company")
+    assemblies = relationship("Assembly", back_populates="company")
+    components = relationship("Component", back_populates="company")
+    pieces = relationship("Piece", back_populates="company")
 
     def __repr__(self):
         return f"<Company(guid={self.guid}, name='{self.name}')>" 

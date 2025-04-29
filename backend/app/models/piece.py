@@ -61,7 +61,6 @@ class Piece(Base):
     id_project = Column(Integer, ForeignKey("projects.id"), nullable=False)
     id_component = Column(Integer, ForeignKey("components.id"), nullable=False)
     id_assembly = Column(Integer, ForeignKey("assemblies.id"), nullable=False)
-    created_date = Column(DateTime(timezone=True), nullable=False)
     parent_assembly_trolley_cell = Column(String, nullable=True)
     mullion_trolley_cell = Column(String, nullable=True)
     glazing_bead_trolley_cell = Column(String, nullable=True)
@@ -69,11 +68,13 @@ class Piece(Base):
     project_phase = Column(String, nullable=True)
     company_guid = Column(UUID(as_uuid=True), ForeignKey("companies.guid"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
-    project = relationship("Project") # Direct relation needed?
-    component = relationship("Component") # Direct relation needed?
+    project = relationship("Project", back_populates="pieces")
+    component = relationship("Component", back_populates="pieces")
     assembly = relationship("Assembly", back_populates="pieces")
+    company = relationship("Company", back_populates="pieces")
     
     def __repr__(self):
         return f"<Piece id={self.id}, piece_id={self.piece_id}>" 
