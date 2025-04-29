@@ -30,11 +30,69 @@ def require_roles(*allowed_roles: str) -> Callable:
     return _require_roles
 
 # Convenience dependencies for common role checks
-require_system_admin = require_roles("SystemAdmin")
-require_company_admin = require_roles("SystemAdmin", "CompanyAdmin")
+require_system_admin = require_roles(UserRole.SYSTEM_ADMIN)
+require_company_admin = require_roles(UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN)
 require_project_manager = require_roles(
-    "SystemAdmin", "CompanyAdmin", "ProjectManager"
+    UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.PROJECT_MANAGER
 )
+require_integration = require_roles(
+    UserRole.SYSTEM_ADMIN, UserRole.INTEGRATION
+)
+
+# Check specifically for API key authenticated requests
+async def require_api_key(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """
+    Dependency to ensure the request is authenticated via API key.
+    
+    Args:
+        current_user: The authenticated user
+        
+    Returns:
+        CurrentUser if authenticated via API key
+        
+    Raises:
+        HTTPException: 403 if not authenticated via API key
+    """
+    if current_user.extras.get("auth_type") != "api_key":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint requires API key authentication"
+        )
+    return current_user
+
+# Check for specific API key scopes
+def require_scopes(*required_scopes: str) -> Callable:
+    """
+    Dependency factory to require specific scopes for API key access.
+    
+    Args:
+        *required_scopes: Variadic list of required scopes
+        
+    Returns:
+        Dependency function that validates API key scopes
+        
+    Example:
+        @app.post("/sync", dependencies=[Depends(require_scopes("sync:write"))])
+    """
+    async def _require_scopes(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+        # SystemAdmin bypasses scope checks
+        if current_user.role == UserRole.SYSTEM_ADMIN:
+            return current_user
+            
+        # For API key auth, check scopes
+        if current_user.extras.get("auth_type") == "api_key":
+            user_scopes = current_user.extras.get("scopes", "").split(",")
+            
+            # Check if any required scope is present
+            if not any(scope.strip() in required_scopes for scope in user_scopes if scope.strip()):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"API key missing required scopes. Need one of: {', '.join(required_scopes)}"
+                )
+                
+        return current_user
+        
+    return _require_scopes
 
 async def set_tenant_context(
     current_user: CurrentUser = Depends(get_current_user),
@@ -54,7 +112,7 @@ async def set_tenant_context(
         Session with tenant context set
     """
     # For SystemAdmin, bypass RLS
-    if current_user.role == "SystemAdmin":
+    if current_user.role == UserRole.SYSTEM_ADMIN:
         await session.execute(text("SET app.bypass_rls = true"))
     else:
         # For other roles, set tenant context
@@ -79,7 +137,7 @@ def scope_guard(resource_company_guid_field: str):
         resource: dict = Depends()
     ):
         # SystemAdmin can access all resources
-        if current_user.role == "SystemAdmin":
+        if current_user.role == UserRole.SYSTEM_ADMIN:
             return resource
             
         # For other users, ensure resource.company_guid matches user's tenant
