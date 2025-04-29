@@ -8,24 +8,69 @@ This document provides a human-readable guide to the Ra Factory API endpoints, b
 
 *   Most `POST` and `PUT` requests expect a JSON body with `Content-Type: application/json`.
 *   Endpoints requiring authentication expect a Bearer token in the `Authorization` header: `Authorization: Bearer <your_access_token>`. Obtain this token from the `/api/v1/auth/login` endpoint.
+*   For integration scenarios, API key authentication is also supported. See the [API Keys](#api-keys) section below.
 
 ---
 
 ## User Roles
 
-The API uses the following roles for access control. Roles are assigned to users and determine what actions they can perform.
+The API uses the following roles for access control in a hierarchical structure. Roles are assigned to users and determine what actions they can perform.
 
-*   **`SystemAdmin`**: Highest privileges, including cross-company access and system configuration.
-*   **`CompanyAdmin`**: Full permissions (Create, Read, Update, Delete) for all data within their assigned company.
-*   **`ProjectManager`**: Can read project data and manage logistics-related information within their company.
-*   **`Operator`**: Limited permissions, typically restricted to actions at specific workstations on the shop floor (often authenticated via QR code).
+*   **`SystemAdmin`**: Highest privileges, including cross-company access and system configuration. Can manage all roles.
+*   **`CompanyAdmin`**: Full permissions (Create, Read, Update, Delete) for all data within their assigned company. Can manage roles below CompanyAdmin level.
+*   **`ProjectManager`**: Can read project data and manage logistics-related information within their company. Cannot manage CompanyAdmin or SystemAdmin roles.
+*   **`Operator`**: Limited permissions, typically restricted to actions at specific workstations on the shop floor (often authenticated via QR code). Cannot manage higher roles.
 *   **`Integration`**: Used for machine-to-machine communication, granting specific permissions for automated tasks like data synchronization.
+
+### Role Hierarchy and Management Restrictions
+
+The system implements a strict role hierarchy that prevents users from creating or modifying users with roles equal to or higher than their own:
+
+1. **SystemAdmin**
+   - Can create/modify all roles
+   - Full system access
+
+2. **CompanyAdmin**
+   - Cannot create/modify SystemAdmin roles
+   - Cannot create peer CompanyAdmin roles
+   - Can manage ProjectManager, Operator, and Integration roles
+   - Access limited to own company
+
+3. **ProjectManager**
+   - Cannot create/modify SystemAdmin or CompanyAdmin roles
+   - Limited to project-related operations
+   - Access limited to own company
+
+4. **Operator**
+   - Cannot create/modify any roles
+   - Limited to workstation operations
+   - Access limited to assigned workstation
+
+5. **Integration**
+   - Special role for system integration
+   - No user management capabilities
+   - Access defined by API scopes
 
 ---
 
 ## Authentication System
 
 The Ra Factory API uses bcrypt for password hashing and JWT (JSON Web Tokens) for session management. Authentication data is stored in the PostgreSQL database and follows a multi-tenant data architecture with Row-Level Security (RLS).
+
+1. The application uses FastAPI with JWT tokens for authentication.
+2. There's a role-based access control (RBAC) system with roles defined in the UserRole enum (SystemAdmin, CompanyAdmin, ProjectManager, Operator, Integration).
+3. The auth.py file contains endpoints for login, refresh token, and QR code login.
+4. JWT tokens include claims for user_id, tenant (company_guid), and role.
+5. The system implements row-level security (RLS) at the database level using PostgreSQL session variables.
+6. There are dependency functions for getting the current user from a JWT token and enforcing role requirements.
+7. The application has multi-tenant support, with the tenant context set based on the user's company.
+8. SystemAdmin users can bypass tenant restrictions, while other roles are limited to their own company's resources.
+
+The authentication flow works through:
+1. User sends credentials to /login or /qr-login
+2. AuthService validates credentials and generates JWT tokens
+3. The tokens are returned to the client and used for subsequent requests
+4. For authenticated routes, the request passes through dependencies that validate the token and check permissions
 
 ### Password Management
 
@@ -49,6 +94,37 @@ hashed_password = PWD_CTX.hash("your_password")
 - When updating passwords directly in the database, ensure the hash is stored correctly without corruption.
 - The system is vulnerable to hash format corruption; always verify hashes are stored with the correct format, beginning with `$2b$12$`.
 - If authentication issues occur, check the database for proper hash storage.
+
+## API Keys
+
+The Ra Factory API supports authentication using API keys for integration scenarios. API keys provide a more secure and flexible approach for machine-to-machine communication.
+
+### Authentication Options
+
+API keys can be included in requests in two ways:
+
+1. Using the `X-API-Key` header (recommended):
+   ```
+   X-API-Key: rfk_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+   ```
+
+2. Using the `Authorization` header:
+   ```
+   Authorization: ApiKey rfk_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+   ```
+
+### API Key Features
+
+- **Scoped Access**: API keys can be limited to specific operations (e.g., sync:read, sync:write)
+- **Usage Tracking**: Last usage time is recorded for auditing
+- **No Expiration**: Unlike JWT tokens, API keys don't expire until revoked
+- **Company-Specific**: Each API key is tied to a specific company
+
+### Creating and Managing API Keys
+
+API keys can be managed through dedicated endpoints at `/api/v1/api-keys`. Only users with SystemAdmin or CompanyAdmin roles can create and manage API keys.
+
+For detailed documentation on API key management and usage, see the [API Keys Documentation](./API_Keys_Documentation.md).
 
 ---
 
@@ -197,8 +273,8 @@ These endpoints are used to bulk insert or update data, typically synchronized f
 ```json
 {
   "projects": [
-    { "code": "P001", "creation_date": "...", "id": 1, /* ... other project fields */ },
-    { "code": "P002", "creation_date": "...", "id": 2, /* ... other project fields */ }
+    { "code": "P001", "creation_date": "...", "id": 1, "updated_at": "...", /* ... other project fields */ },
+    { "code": "P002", "creation_date": "...", "id": 2, "updated_at": "...", /* ... other project fields */ }
     // ... more projects
   ]
 }
@@ -372,4 +448,318 @@ curl http://localhost:8000/api/v1/health | cat
 curl -L http://localhost:8000/
 ```
 
---- 
+---
+
+## User Management Endpoints (`/api/v1/users`)
+
+These endpoints handle user creation, retrieval, updating, and deactivation. Most operations require SystemAdmin or CompanyAdmin privileges.
+
+### 1. Create User (`POST /api/v1/users`)
+
+**Description:** Create a new user within the authenticated user's company. SystemAdmin role can create users with any role, while CompanyAdmin can only create users with roles below SystemAdmin.
+
+**Authentication:** Requires `Authorization: Bearer <token>` header with SystemAdmin or CompanyAdmin role.
+
+**Request Body:**
+```json
+{
+  "email": "new.user@example.com",
+  "password": "secure_password",
+  "role": "CompanyAdmin",
+  "pin": "123456",  // Optional, typically for Operator role
+  "is_active": true  // Optional, defaults to true
+}
+```
+
+**Response (Success - 201 Created):**
+```json
+{
+  "guid": "user-guid",
+  "email": "new.user@example.com",
+  "role": "CompanyAdmin",
+  "is_active": true,
+  "created_at": "2023-01-01T12:00:00Z"
+}
+```
+
+**Example:**
+```bash
+curl -X POST -H "Content-Type: application/json" \
+     -H "Authorization: Bearer <your_access_token>" \
+     -d '{"email": "new.user@example.com", "password": "secure_password", "role": "CompanyAdmin"}' \
+     http://localhost:8000/api/v1/users | cat
+```
+
+### 2. Get Users (`GET /api/v1/users`)
+
+**Description:** Retrieve a list of users belonging to the authenticated user's company. Results are filtered based on the user's role.
+
+**Authentication:** Requires `Authorization: Bearer <token>` header.
+
+**Query Parameters:**
+- `role` (optional): Filter users by role
+- `active` (optional): Filter by active status (`true` or `false`)
+
+**Response (Success - 200 OK):**
+```json
+{
+  "users": [
+    {
+      "guid": "user-guid-1",
+      "email": "user1@example.com",
+      "role": "CompanyAdmin",
+      "is_active": true,
+      "created_at": "2023-01-01T12:00:00Z"
+    },
+    {
+      "guid": "user-guid-2",
+      "email": "user2@example.com",
+      "role": "ProjectManager",
+      "is_active": true,
+      "created_at": "2023-01-02T12:00:00Z"
+    }
+  ]
+}
+```
+
+**Example:**
+```bash
+curl -X GET -H "Authorization: Bearer <your_access_token>" \
+     http://localhost:8000/api/v1/users | cat
+```
+
+### 3. Get User by GUID (`GET /api/v1/users/{guid}`)
+
+**Description:** Retrieve details for a specific user by their GUID.
+
+**Authentication:** Requires `Authorization: Bearer <token>` header.
+
+**Response (Success - 200 OK):**
+```json
+{
+  "guid": "user-guid",
+  "email": "user@example.com",
+  "role": "CompanyAdmin",
+  "is_active": true,
+  "created_at": "2023-01-01T12:00:00Z",
+  "updated_at": "2023-01-02T12:00:00Z"
+}
+```
+
+**Example:**
+```bash
+curl -X GET -H "Authorization: Bearer <your_access_token>" \
+     http://localhost:8000/api/v1/users/550e8400-e29b-41d4-a716-446655440000 | cat
+```
+
+### 4. Update User (`PUT /api/v1/users/{guid}`)
+
+**Description:** Update user details including email, password, role, and active status.
+
+**Authentication:** Requires `Authorization: Bearer <token>` header with appropriate permissions.
+
+**Request Body:**
+```json
+{
+  "email": "updated.email@example.com",  // Optional
+  "password": "new_password",            // Optional
+  "role": "ProjectManager",              // Optional
+  "is_active": false                     // Optional
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "guid": "user-guid",
+  "email": "updated.email@example.com",
+  "role": "ProjectManager",
+  "is_active": false,
+  "updated_at": "2023-01-03T12:00:00Z"
+}
+```
+
+**Example:**
+```bash
+curl -X PUT -H "Content-Type: application/json" \
+     -H "Authorization: Bearer <your_access_token>" \
+     -d '{"role": "ProjectManager"}' \
+     http://localhost:8000/api/v1/users/550e8400-e29b-41d4-a716-446655440000 | cat
+```
+
+### 5. Delete User (`DELETE /api/v1/users/{guid}`)
+
+**Description:** Soft-delete a user by setting their `is_active` status to `false`. The user remains in the database but can no longer access the system.
+
+**Authentication:** Requires `Authorization: Bearer <token>` header with SystemAdmin or CompanyAdmin role.
+
+**Response (Success - 200 OK):**
+```json
+{
+  "message": "User deactivated successfully",
+  "guid": "user-guid"
+}
+```
+
+**Example:**
+```bash
+curl -X DELETE -H "Authorization: Bearer <your_access_token>" \
+     http://localhost:8000/api/v1/users/550e8400-e29b-41d4-a716-446655440000 | cat
+```
+
+---
+
+## Workstation Management Endpoints (`/api/v1/workstations`)
+
+These endpoints handle workstation creation, retrieval, updating, and deactivation.
+
+### 1. Create Workstation (`POST /api/v1/workstations`)
+
+**Description:** Create a new workstation within the authenticated user's company.
+
+**Authentication:** Requires `Authorization: Bearer <token>` header with SystemAdmin or CompanyAdmin role.
+
+**Request Body:**
+```json
+{
+  "location": "Production Floor A",
+  "type": "Assembly",  // Should match one of: Machine, Assembly, Control, Logistics, Supply
+  "is_active": true    // Optional, defaults to true
+}
+```
+
+**Response (Success - 201 Created):**
+```json
+{
+  "guid": "workstation-guid",
+  "location": "Production Floor A",
+  "type": "Assembly",
+  "is_active": true,
+  "created_at": "2023-01-01T12:00:00Z"
+}
+```
+
+**Example:**
+```bash
+curl -X POST -H "Content-Type: application/json" \
+     -H "Authorization: Bearer <your_access_token>" \
+     -d '{"location": "Production Floor A", "type": "Assembly"}' \
+     http://localhost:8000/api/v1/workstations | cat
+```
+
+### 2. Get Workstations (`GET /api/v1/workstations`)
+
+**Description:** Retrieve a list of workstations belonging to the authenticated user's company.
+
+**Authentication:** Requires `Authorization: Bearer <token>` header.
+
+**Query Parameters:**
+- `type` (optional): Filter by workstation type
+- `active` (optional): Filter by active status (`true` or `false`)
+- `location` (optional): Filter by location (substring match)
+
+**Response (Success - 200 OK):**
+```json
+{
+  "workstations": [
+    {
+      "guid": "workstation-guid-1",
+      "location": "Production Floor A",
+      "type": "Assembly",
+      "is_active": true,
+      "created_at": "2023-01-01T12:00:00Z"
+    },
+    {
+      "guid": "workstation-guid-2",
+      "location": "Production Floor B",
+      "type": "Machine",
+      "is_active": true,
+      "created_at": "2023-01-02T12:00:00Z"
+    }
+  ]
+}
+```
+
+**Example:**
+```bash
+curl -X GET -H "Authorization: Bearer <your_access_token>" \
+     "http://localhost:8000/api/v1/workstations?type=Assembly" | cat
+```
+
+### 3. Get Workstation by GUID (`GET /api/v1/workstations/{guid}`)
+
+**Description:** Retrieve details for a specific workstation by its GUID.
+
+**Authentication:** Requires `Authorization: Bearer <token>` header.
+
+**Response (Success - 200 OK):**
+```json
+{
+  "guid": "workstation-guid",
+  "location": "Production Floor A",
+  "type": "Assembly",
+  "is_active": true,
+  "created_at": "2023-01-01T12:00:00Z",
+  "updated_at": "2023-01-02T12:00:00Z"
+}
+```
+
+**Example:**
+```bash
+curl -X GET -H "Authorization: Bearer <your_access_token>" \
+     http://localhost:8000/api/v1/workstations/550e8400-e29b-41d4-a716-446655440000 | cat
+```
+
+### 4. Update Workstation (`PUT /api/v1/workstations/{guid}`)
+
+**Description:** Update workstation details including location, type, and active status.
+
+**Authentication:** Requires `Authorization: Bearer <token>` header with SystemAdmin or CompanyAdmin role.
+
+**Request Body:**
+```json
+{
+  "location": "Updated Floor Location",  // Optional
+  "type": "Control",                     // Optional, must be one of: Machine, Assembly, Control, Logistics, Supply
+  "is_active": false                     // Optional
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "guid": "workstation-guid",
+  "location": "Updated Floor Location",
+  "type": "Control",
+  "is_active": false,
+  "updated_at": "2023-01-03T12:00:00Z"
+}
+```
+
+**Example:**
+```bash
+curl -X PUT -H "Content-Type: application/json" \
+     -H "Authorization: Bearer <your_access_token>" \
+     -d '{"location": "Updated Floor Location"}' \
+     http://localhost:8000/api/v1/workstations/550e8400-e29b-41d4-a716-446655440000 | cat
+```
+
+### 5. Delete Workstation (`DELETE /api/v1/workstations/{guid}`)
+
+**Description:** Soft-delete a workstation by setting its `is_active` status to `false`.
+
+**Authentication:** Requires `Authorization: Bearer <token>` header with SystemAdmin or CompanyAdmin role.
+
+**Response (Success - 200 OK):**
+```json
+{
+  "message": "Workstation deactivated successfully",
+  "guid": "workstation-guid"
+}
+```
+
+**Example:**
+```bash
+curl -X DELETE -H "Authorization: Bearer <your_access_token>" \
+     http://localhost:8000/api/v1/workstations/550e8400-e29b-41d4-a716-446655440000 | cat
+``` 

@@ -14,9 +14,19 @@ Our `docker-compose.yml` defines three main environments using profiles:
 
 The system uses bcrypt for password hashing via the `passlib` library. Password hashes are stored in the `pwd_hash` column of the `users` table.
 
+### User Management API
+
+The API provides built-in endpoints for user management at `/api/v1/users`. These endpoints allow for:
+- Creating new users
+- Retrieving user information
+- Updating user details including passwords
+- Deactivating users
+
+When possible, these API endpoints should be used instead of direct database manipulation, especially in production environments. See the API Usage Guide for detailed documentation on these endpoints.
+
 ### Password Update Tool
 
-For managing passwords across environments (especially for admin users), use the provided script template:
+For direct database maintenance or emergency password resets, use the provided script template:
 
 ```python
 # update_admin_password.py
@@ -58,6 +68,16 @@ def update_user_password(email, new_password, db_name, db_port):
 **Important:** Direct database manipulation of passwords should be avoided in production environments when possible. Use the API endpoints or controlled maintenance scripts.
 
 **Note:** Always verify that password hashes are stored correctly in the database to avoid authentication issues. The hash format should begin with `$2b$12$`.
+
+## Managing Workstations
+
+The system supports workstation management via the API endpoints at `/api/v1/workstations`. These endpoints allow for:
+- Creating workstations with specified types (Machine, Assembly, Control, Logistics, Supply)
+- Retrieving workstation information
+- Updating workstation details
+- Deactivating workstations
+
+These endpoints should be used to manage all workstation-related operations instead of direct database manipulation.
 
 ## 1. Development Workflow (`dev` profile)
 
