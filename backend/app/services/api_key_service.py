@@ -5,12 +5,46 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from datetime import datetime
 from typing import Optional, List, Dict, Any
+from fastapi import HTTPException, status
 
 from app.models.apikey import ApiKey
-from app.utils.security import hash_password
+from app.utils.security import hash_password, verify_password
 
 
 class ApiKeyService:
+    # Define valid scopes as a class variable
+    VALID_SCOPES = ["sync:read", "sync:write"]
+    
+    @staticmethod
+    def validate_scopes(scopes: Optional[str]) -> List[str]:
+        """
+        Validates the provided scopes string against allowed scopes.
+        
+        Args:
+            scopes: Comma-separated string of scopes
+            
+        Returns:
+            List of validated scopes
+            
+        Raises:
+            HTTPException: 422 if any scope is invalid
+        """
+        if not scopes:
+            return []
+            
+        # Split and trim scopes
+        scope_list = [s.strip() for s in scopes.split(",") if s.strip()]
+        
+        # Validate each scope
+        invalid_scopes = [s for s in scope_list if s not in ApiKeyService.VALID_SCOPES]
+        if invalid_scopes:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid scopes: {', '.join(invalid_scopes)}. Valid scopes are: {', '.join(ApiKeyService.VALID_SCOPES)}"
+            )
+            
+        return scope_list
+    
     @staticmethod
     def generate_api_key() -> str:
         """
@@ -45,6 +79,7 @@ class ApiKeyService:
         company_guid: uuid.UUID,
         description: Optional[str] = None,
         scopes: Optional[str] = None,
+        key: Optional[str] = None,
         session: AsyncSession = None
     ) -> Dict[str, Any]:
         """
@@ -54,14 +89,49 @@ class ApiKeyService:
             company_guid: The company this key belongs to
             description: Optional description of what this key is for
             scopes: Optional comma-separated list of permission scopes
+            key: Optional user-provided key (must be unique)
             session: Database session
             
         Returns:
             Dictionary with the created API key details, including the raw key
+            
+        Raises:
+            HTTPException: 422 if any scope is invalid or key format is invalid
+            HTTPException: 400 if the provided key already exists
         """
-        # Generate a new API key
-        raw_key = ApiKeyService.generate_api_key()
-        hashed_key = ApiKeyService.hash_api_key(raw_key)
+        # Validate scopes before creating the key
+        ApiKeyService.validate_scopes(scopes)
+        
+        # Generate or validate a key
+        if key:
+            # Validate the key format
+            if not key.startswith("rfk_") or len(key) < 8:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="API key must start with 'rfk_' and be at least 8 characters long"
+                )
+                
+            # Check if the key already exists
+            hashed_key = ApiKeyService.hash_api_key(key)
+            
+            # We need to check all keys as bcrypt produces different hashes for the same input
+            query = select(ApiKey)
+            result = await session.execute(query)
+            existing_keys = result.scalars().all()
+            
+            # Check each key using verify_password which handles the bcrypt comparison
+            for existing_key in existing_keys:
+                if verify_password(key, existing_key.key_hash):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="An API key with this value already exists"
+                    )
+                
+            raw_key = key
+        else:
+            # Generate a new key
+            raw_key = ApiKeyService.generate_api_key()
+            hashed_key = ApiKeyService.hash_api_key(raw_key)
         
         # Create the API key model
         new_key = ApiKey(
@@ -146,7 +216,14 @@ class ApiKeyService:
             
         Returns:
             Updated API key object if found, None otherwise
+            
+        Raises:
+            HTTPException: 422 if any scope is invalid
         """
+        # Validate scopes if provided
+        if scopes is not None:
+            ApiKeyService.validate_scopes(scopes)
+        
         # Prepare update values (only non-None values)
         values = {}
         if description is not None:
@@ -203,23 +280,21 @@ class ApiKeyService:
         Returns:
             Dictionary with company and scope info if validated, None otherwise
         """
-        # We need to query all API keys as we don't know the hash upfront
+        # We need to query all API keys as we can't hash the key for comparison
         query = select(ApiKey).where(ApiKey.is_active == True)
         result = await session.execute(query)
         keys = result.scalars().all()
         
         # Try to find a matching key
-        from app.utils.security import verify_password
-        
         for key in keys:
             if verify_password(api_key, key.key_hash):
                 # Update last_used_at
                 key.last_used_at = datetime.utcnow()
                 await session.commit()
                 
-                # Return key info
+                # Return key info - ensure company_guid is a UUID object
                 return {
-                    "company_guid": str(key.company_guid),
+                    "company_guid": key.company_guid,  # Return UUID object directly, not string
                     "scopes": key.scopes,
                     "guid": str(key.guid)
                 }

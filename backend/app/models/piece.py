@@ -2,13 +2,14 @@ from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, LargeBinar
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+import uuid
 
-from .base import Base
+from .base import Base, TimestampMixin
 
-class Piece(Base):
+class Piece(Base, TimestampMixin):
     __tablename__ = "pieces"
     
-    id = Column(Integer, primary_key=True) # From RaConnect
+    guid = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     piece_id = Column(String, nullable=False)
     outer_length = Column(Integer, nullable=True)
     angle_left = Column(Integer, nullable=True)
@@ -58,17 +59,15 @@ class Piece(Base):
     profile_type = Column(String, nullable=True)
     trolley_size = Column(String, nullable=True)
     profile_code_with_color = Column(String, nullable=True)
-    id_project = Column(Integer, ForeignKey("projects.id"), nullable=False)
-    id_component = Column(Integer, ForeignKey("components.id"), nullable=False)
-    id_assembly = Column(Integer, ForeignKey("assemblies.id"), nullable=False)
+    project_guid = Column(UUID(as_uuid=True), ForeignKey("projects.guid"), nullable=False)
+    component_guid = Column(UUID(as_uuid=True), ForeignKey("components.guid"), nullable=False)
+    assembly_guid = Column(UUID(as_uuid=True), ForeignKey("assemblies.guid"), nullable=True)
     parent_assembly_trolley_cell = Column(String, nullable=True)
     mullion_trolley_cell = Column(String, nullable=True)
     glazing_bead_trolley_cell = Column(String, nullable=True)
     picture = Column(LargeBinary, nullable=True)
     project_phase = Column(String, nullable=True)
     company_guid = Column(UUID(as_uuid=True), ForeignKey("companies.guid"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     project = relationship("Project", back_populates="pieces")
@@ -77,4 +76,4 @@ class Piece(Base):
     company = relationship("Company", back_populates="pieces")
     
     def __repr__(self):
-        return f"<Piece id={self.id}, piece_id={self.piece_id}>" 
+        return f"<Piece guid={self.guid}, piece_id={self.piece_id}>" 

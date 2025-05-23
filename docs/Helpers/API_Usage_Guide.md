@@ -1,6 +1,176 @@
 # Ra Factory API Usage Guide
 
-This document provides a human-readable guide to the Ra Factory API endpoints, based on the `openapi_schema.json`.
+This document provides a comprehensive guide to securely accessing and using the Ra Factory API endpoints.
+
+## Quick Start Guide
+
+1. **Authentication**:
+   - Obtain an access token via `/api/v1/auth/login`
+   - Include token in all subsequent requests: `Authorization: Bearer <access_token>`
+   - Refresh token before expiration (900 seconds) using `/api/v1/auth/refresh`
+
+2. **API Key Alternative**:
+   - For system integration, use API keys instead of JWT tokens
+   - Include via header: `X-API-Key: rfk_your_api_key`
+
+3. **Content Type**:
+   - All requests must include: `Content-Type: application/json`
+   - Responses are always JSON formatted
+
+## Security Best Practices
+
+1. **Token Management**:
+   - Never share or expose access tokens
+   - Store tokens securely (e.g., secure HTTP-only cookies)
+   - Refresh tokens before expiration
+   - Implement proper token rotation
+
+2. **API Key Security**:
+   - Treat API keys as sensitive credentials
+   - Use environment variables for storage
+   - Rotate keys periodically
+   - Use scoped keys with minimal required permissions
+
+3. **Error Handling**:
+   - Implement proper retry logic for 429 (Rate Limit) responses
+   - Handle 401 (Unauthorized) by refreshing tokens
+   - Never log sensitive data (tokens, keys, passwords)
+
+## Authentication Methods
+
+### 1. JWT Authentication (Recommended for Web Applications)
+
+```bash
+# 1. Login to obtain tokens
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "your_password"}'
+
+# Response contains:
+{
+  "access_token": "eyJ...",  # Valid for 900 seconds
+  "refresh_token": "eyJ...", # Use to obtain new access tokens
+  "role": "UserRole",
+  "expires_in": 900
+}
+
+# 2. Use access token for subsequent requests
+curl -X GET http://localhost:8000/api/v1/protected-endpoint \
+  -H "Authorization: Bearer eyJ..."
+
+# 3. Refresh token before expiration
+curl -X POST http://localhost:8000/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token": "eyJ..."}'
+```
+
+### 2. API Key Authentication (Recommended for System Integration)
+
+```bash
+# Using X-API-Key header (recommended)
+curl -X GET http://localhost:8000/api/v1/protected-endpoint \
+  -H "X-API-Key: rfk_your_api_key"
+
+# Alternative: Using Authorization header
+curl -X GET http://localhost:8000/api/v1/protected-endpoint \
+  -H "Authorization: ApiKey rfk_your_api_key"
+```
+
+### 3. QR Code Authentication (For Operator Workstations)
+
+```bash
+# Authenticate operator with QR code data
+curl -X POST http://localhost:8000/api/v1/auth/qr \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_guid": "uuid-from-qr",
+    "workstation_guid": "workstation-uuid",
+    "pin": "123456"
+  }'
+```
+
+## Role-Based Access Control (RBAC)
+
+The API implements a strict role hierarchy that determines access permissions:
+
+1. **SystemAdmin**
+   - Full system access across all companies
+   - Can manage all user roles
+   - Access to system configuration
+   - Example endpoints: `/api/v1/auth/protected`
+
+2. **CompanyAdmin**
+   - Company-wide access
+   - User management within company
+   - Cannot access other companies' data
+   - Example endpoints: `/api/v1/users`, `/api/v1/api-keys`
+
+3. **ProjectManager**
+   - Project data access
+   - Logistics management
+   - No user management permissions
+   - Example endpoints: `/api/v1/projects`
+
+4. **Operator**
+   - Workstation-specific access
+   - QR code authentication
+   - Limited to assigned tasks
+   - Example endpoints: `/api/v1/workstations/{guid}`
+
+5. **Integration**
+   - API key access
+   - Scoped permissions
+   - Data synchronization
+   - Example endpoints: `/api/v1/sync/*`
+
+## Multi-Tenant Security
+
+The API enforces strict data isolation between companies:
+
+1. **Company Isolation**:
+   - Each request is scoped to the user's company
+   - Cross-company access prevented by Row-Level Security
+   - SystemAdmin role can bypass isolation
+
+2. **Data Access**:
+   - All entities linked to company_guid
+   - Automatic filtering based on user's company
+   - Proper error messages for cross-company attempts
+
+## Error Handling
+
+Common HTTP status codes and their meaning:
+
+- 200: Success
+- 201: Resource created
+- 400: Invalid request data
+- 401: Authentication required/failed
+- 403: Insufficient permissions
+- 404: Resource not found
+- 429: Too many requests
+- 500: Server error
+
+Example error response:
+```json
+{
+  "error": "Detailed error message",
+  "status_code": 401,
+  "suggestion": "Action to resolve the error"
+}
+```
+
+## Rate Limiting
+
+- Implement exponential backoff for retries
+- Handle 429 responses appropriately
+- Default limits: [Add your rate limits here]
+
+## API Versioning
+
+Current version: v1
+Base URL: `http://localhost:8000/api/v1`
+
+Future versions will be available at `/api/v2`, etc.
 
 **Base URL (Development):** `http://localhost:8000`
 
@@ -253,7 +423,14 @@ curl -X GET -H "Authorization: Bearer <system_admin_access_token>" \
 
 ## Synchronization Endpoints (`/api/v1/sync`)
 
-These endpoints are used to bulk insert or update data, typically synchronized from an external source like RaConnect. They generally require authentication (Admin role or specific API key scope).
+These endpoints are used to bulk insert or update data, typically synchronized from an external source like RaConnect. They require authentication (Admin role or specific API key scope).
+
+**Important GUID Notes:**
+- All entities (projects, components, assemblies, pieces, articles) use UUIDs (GUIDs) as primary keys
+- GUIDs are automatically generated if not provided
+- Foreign key relationships use GUIDs instead of integer IDs
+- Company isolation is enforced through company_guid
+- All GUIDs must be valid UUID v4 format
 
 **Authentication:** Requires `Authorization: Bearer <token>` header.
 
@@ -265,6 +442,51 @@ These endpoints are used to bulk insert or update data, typically synchronized f
 }
 ```
 
+### Data Modification Guide
+
+#### Update Operations
+
+Unlike traditional RESTful APIs, Ra Factory does not implement PUT/PATCH endpoints for entity updates. Instead, all data modifications (create, update, delete) are performed through the sync endpoints:
+
+- `/api/v1/sync/projects` - For project updates
+- `/api/v1/sync/components` - For component updates
+- `/api/v1/sync/assemblies` - For assembly updates
+- `/api/v1/sync/pieces` - For piece updates
+- `/api/v1/sync/articles` - For article updates
+
+#### How to Update Entities
+
+To update an existing entity, include its GUID in the request body along with the updated fields:
+
+```bash
+# Example: Updating a project
+curl -X POST -H "Content-Type: application/json" \
+     -H "Authorization: Bearer <token>" \
+     -d '{
+       "projects": [
+         {
+           "guid": "existing-project-guid",  # GUID identifies this as an update operation
+           "code": "UPDATED_CODE",
+           "company_guid": "your-company-guid"
+         }
+       ]
+     }' \
+     http://localhost:8000/api/v1/sync/projects
+```
+
+The API will:
+1. Recognize this as an update operation because the GUID exists
+2. Update only the fields you provide, leaving other fields unchanged
+3. Return counts of inserted and updated records
+
+#### Implementation Notes
+
+- If the GUID exists, the record is updated
+- If the GUID doesn't exist, a new record is created
+- Only include fields you want to update
+- Always include required fields (e.g., company_guid)
+- For successful updates, "updated" count will be incremented in the response
+
 ### 1. Sync Projects (`POST /api/v1/sync/projects`)
 
 **Description:** Bulk insert/update project data.
@@ -273,19 +495,17 @@ These endpoints are used to bulk insert or update data, typically synchronized f
 ```json
 {
   "projects": [
-    { "code": "P001", "creation_date": "...", "id": 1, "updated_at": "...", /* ... other project fields */ },
-    { "code": "P002", "creation_date": "...", "id": 2, "updated_at": "...", /* ... other project fields */ }
+    {
+      "code": "P001",
+      "guid": "550e8400-e29b-41d4-a716-446655440000",  // Optional, will be generated if not provided
+      "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
+      "due_date": "2024-12-31T23:59:59Z",
+      "in_production": false,
+      "company_name": "Example Corp"
+    }
     // ... more projects
   ]
 }
-```
-
-**Example:**
-```bash
-curl -X POST -H "Content-Type: application/json" \
-     -H "Authorization: Bearer <your_access_token>" \
-     -d '{"projects": [ { /* project data */ } ]}' \
-     http://localhost:8000/api/v1/sync/projects | cat
 ```
 
 ### 2. Sync Components (`POST /api/v1/sync/components`)
@@ -296,19 +516,17 @@ curl -X POST -H "Content-Type: application/json" \
 ```json
 {
   "components": [
-    { "code": "C001", "id_project": 1, "id": 10, "created_date": "...", /* ... */ },
-    { "code": "C002", "id_project": 1, "id": 11, "created_date": "...", /* ... */ }
+    {
+      "code": "C001",
+      "guid": "550e8400-e29b-41d4-a716-446655440001",  // Optional, will be generated if not provided
+      "project_guid": "550e8400-e29b-41d4-a716-446655440000",  // Required, must reference existing project
+      "designation": "Main Component",
+      "quantity": 1,
+      "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71"
+    }
     // ... more components
   ]
 }
-```
-
-**Example:**
-```bash
-curl -X POST -H "Content-Type: application/json" \
-     -H "Authorization: Bearer <your_access_token>" \
-     -d '{"components": [ { /* component data */ } ]}' \
-     http://localhost:8000/api/v1/sync/components | cat
 ```
 
 ### 3. Sync Assemblies (`POST /api/v1/sync/assemblies`)
@@ -319,19 +537,18 @@ curl -X POST -H "Content-Type: application/json" \
 ```json
 {
   "assemblies": [
-    { "id_project": 1, "id_component": 10, "id": 100, /* ... */ },
-    { "id_project": 1, "id_component": 11, "id": 101, /* ... */ }
+    {
+      "guid": "550e8400-e29b-41d4-a716-446655440002",  // Optional, will be generated if not provided
+      "project_guid": "550e8400-e29b-41d4-a716-446655440000",  // Required
+      "component_guid": "550e8400-e29b-41d4-a716-446655440001",  // Required
+      "trolley_cell": "A1",
+      "trolley": "T1",
+      "cell_number": 1,
+      "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71"
+    }
     // ... more assemblies
   ]
 }
-```
-
-**Example:**
-```bash
-curl -X POST -H "Content-Type: application/json" \
-     -H "Authorization: Bearer <your_access_token>" \
-     -d '{"assemblies": [ { /* assembly data */ } ]}' \
-     http://localhost:8000/api/v1/sync/assemblies | cat
 ```
 
 ### 4. Sync Pieces (`POST /api/v1/sync/pieces`)
@@ -342,19 +559,23 @@ curl -X POST -H "Content-Type: application/json" \
 ```json
 {
   "pieces": [
-    { "piece_id": "...", "id_project": 1, "id_component": 10, "id_assembly": 100, "id": 1000, "created_date": "...", /* ... */ },
-    { "piece_id": "...", "id_project": 1, "id_component": 10, "id_assembly": 100, "id": 1001, "created_date": "...", /* ... */ }
+    {
+      "guid": "550e8400-e29b-41d4-a716-446655440003",  // Optional, will be generated if not provided
+      "piece_id": "PIECE001",  // Required
+      "project_guid": "550e8400-e29b-41d4-a716-446655440000",  // Required
+      "component_guid": "550e8400-e29b-41d4-a716-446655440001",  // Required
+      "assembly_guid": "550e8400-e29b-41d4-a716-446655440002",  // Optional
+      "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
+      // ... other optional fields
+      "outer_length": 100,
+      "angle_left": 45,
+      "angle_right": 45,
+      "barcode": "BAR123",
+      "profile_code": "PRF001"
+    }
     // ... more pieces (up to 1000)
   ]
 }
-```
-
-**Example:**
-```bash
-curl -X POST -H "Content-Type: application/json" \
-     -H "Authorization: Bearer <your_access_token>" \
-     -d '{"pieces": [ { /* piece data */ } ]}' \
-     http://localhost:8000/api/v1/sync/pieces | cat
 ```
 
 ### 5. Sync Articles (`POST /api/v1/sync/articles`)
@@ -365,20 +586,46 @@ curl -X POST -H "Content-Type: application/json" \
 ```json
 {
   "articles": [
-    { "code": "A001", "id_project": 1, "id_component": 10, "id": 500, "created_date": "...", /* ... */ },
-    { "code": "A002", "id_project": 1, "id_component": 11, "id": 501, "created_date": "...", /* ... */ }
+    {
+      "guid": "550e8400-e29b-41d4-a716-446655440004",  // Optional, will be generated if not provided
+      "code": "A001",  // Required
+      "project_guid": "550e8400-e29b-41d4-a716-446655440000",  // Required
+      "component_guid": "550e8400-e29b-41d4-a716-446655440001",  // Required
+      "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
+      "designation": "Hardware Item",
+      "quantity": 1.0,
+      "unit": "pcs",
+      // ... other optional fields
+    }
     // ... more articles
   ]
 }
 ```
 
-**Example:**
-```bash
-curl -X POST -H "Content-Type: application/json" \
-     -H "Authorization: Bearer <your_access_token>" \
-     -d '{"articles": [ { /* article data */ } ]}' \
-     http://localhost:8000/api/v1/sync/articles | cat
-```
+**Important Notes on Data Relationships:**
+
+1. **Hierarchical Dependencies:**
+   - Projects are top-level entities
+   - Components must reference a valid project_guid
+   - Assemblies must reference valid project_guid and component_guid
+   - Pieces must reference valid project_guid and component_guid, with optional assembly_guid
+   - Articles must reference valid project_guid and component_guid
+
+2. **Company Isolation:**
+   - All entities must belong to a company (company_guid)
+   - Users can only access/modify entities within their company
+   - SystemAdmin role can access all companies
+
+3. **GUID Generation:**
+   - If not provided, GUIDs are automatically generated using UUID v4
+   - If provided, GUIDs must be valid UUID v4 format
+   - GUIDs must be unique across all instances of an entity type
+
+4. **Validation:**
+   - Foreign key relationships are strictly enforced
+   - Referenced GUIDs must exist in the database
+   - Company_guid must match the authenticated user's company
+   - Bulk operations are atomic - all succeed or all fail
 
 ---
 
@@ -466,6 +713,7 @@ These endpoints handle user creation, retrieval, updating, and deactivation. Mos
   "email": "new.user@example.com",
   "password": "secure_password",
   "role": "CompanyAdmin",
+  "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",  // Required - the company GUID this user belongs to
   "pin": "123456",  // Optional, typically for Operator role
   "is_active": true  // Optional, defaults to true
 }
@@ -477,6 +725,7 @@ These endpoints handle user creation, retrieval, updating, and deactivation. Mos
   "guid": "user-guid",
   "email": "new.user@example.com",
   "role": "CompanyAdmin",
+  "company_guid": "company-guid",
   "is_active": true,
   "created_at": "2023-01-01T12:00:00Z"
 }
@@ -486,7 +735,12 @@ These endpoints handle user creation, retrieval, updating, and deactivation. Mos
 ```bash
 curl -X POST -H "Content-Type: application/json" \
      -H "Authorization: Bearer <your_access_token>" \
-     -d '{"email": "new.user@example.com", "password": "secure_password", "role": "CompanyAdmin"}' \
+     -d '{
+       "email": "new.user@example.com",
+       "password": "secure_password",
+       "role": "CompanyAdmin",
+       "company_guid": "your-company-guid"
+     }' \
      http://localhost:8000/api/v1/users | cat
 ```
 
@@ -589,177 +843,342 @@ curl -X PUT -H "Content-Type: application/json" \
 
 ### 5. Delete User (`DELETE /api/v1/users/{guid}`)
 
-**Description:** Soft-delete a user by setting their `is_active` status to `false`. The user remains in the database but can no longer access the system.
+**Description:** Soft-delete a user by setting their `is_active`
 
-**Authentication:** Requires `Authorization: Bearer <token>` header with SystemAdmin or CompanyAdmin role.
+## Endpoint Categories
 
-**Response (Success - 200 OK):**
-```json
-{
-  "message": "User deactivated successfully",
-  "guid": "user-guid"
-}
-```
+### Authentication Endpoints
 
-**Example:**
-```bash
-curl -X DELETE -H "Authorization: Bearer <your_access_token>" \
-     http://localhost:8000/api/v1/users/550e8400-e29b-41d4-a716-446655440000 | cat
-```
+1. **Login** - `POST /api/v1/auth/login`
+   - Required Role: None
+   - Rate Limit: 5 requests per minute
+   - Use for: Web application user login
+   ```json
+   {
+     "email": "user@example.com",
+     "password": "your_password"
+   }
+   ```
 
----
+2. **Refresh Token** - `POST /api/v1/auth/refresh`
+   - Required Role: None
+   - Rate Limit: 10 requests per minute
+   - Use for: Obtaining new access tokens
+   ```json
+   {
+     "refresh_token": "your_refresh_token"
+   }
+   ```
 
-## Workstation Management Endpoints (`/api/v1/workstations`)
+3. **QR Login** - `POST /api/v1/auth/qr`
+   - Required Role: None
+   - Rate Limit: 5 requests per minute
+   - Use for: Operator workstation authentication
+   ```json
+   {
+     "user_guid": "uuid-from-qr",
+     "workstation_guid": "workstation-uuid",
+     "pin": "123456"
+   }
+   ```
 
-These endpoints handle workstation creation, retrieval, updating, and deactivation.
+### User Management Endpoints
 
-### 1. Create Workstation (`POST /api/v1/workstations`)
+1. **Create User** - `POST /api/v1/users`
+   - Required Role: SystemAdmin or CompanyAdmin
+   - Company Isolation: Yes
+   - Use for: Creating new users within company
+   ```json
+   {
+     "email": "new.user@example.com",
+     "password": "secure_password",
+     "role": "ProjectManager",
+     "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",  // Required - the company GUID this user belongs to
+     "pin": "123456",  // Optional, typically for Operator role
+     "is_active": true  // Optional, defaults to true
+   }
+   ```
 
-**Description:** Create a new workstation within the authenticated user's company.
+2. **List Users** - `GET /api/v1/users`
+   - Required Role: SystemAdmin or CompanyAdmin
+   - Company Isolation: Yes
+   - Query Parameters:
+     - `role`: Filter by role
+     - `active`: Filter by active status
 
-**Authentication:** Requires `Authorization: Bearer <token>` header with SystemAdmin or CompanyAdmin role.
+### Workstation Management Endpoints
 
-**Request Body:**
-```json
-{
-  "location": "Production Floor A",
-  "type": "Assembly",  // Should match one of: Machine, Assembly, Control, Logistics, Supply
-  "is_active": true    // Optional, defaults to true
-}
-```
+1. **Create Workstation** - `POST /api/v1/workstations`
+   - Required Role: SystemAdmin or CompanyAdmin
+   - Company Isolation: Yes
+   - Use for: Setting up new workstations
+   ```json
+   {
+     "location": "Assembly Line 1",
+     "type": "Assembly",
+     "is_active": true
+   }
+   ```
 
-**Response (Success - 201 Created):**
-```json
-{
-  "guid": "workstation-guid",
-  "location": "Production Floor A",
-  "type": "Assembly",
-  "is_active": true,
-  "created_at": "2023-01-01T12:00:00Z"
-}
-```
+2. **List Workstations** - `GET /api/v1/workstations`
+   - Required Role: Any authenticated user
+   - Company Isolation: Yes
+   - Query Parameters:
+     - `type`: Filter by workstation type
+     - `active`: Filter by active status
 
-**Example:**
-```bash
-curl -X POST -H "Content-Type: application/json" \
-     -H "Authorization: Bearer <your_access_token>" \
-     -d '{"location": "Production Floor A", "type": "Assembly"}' \
-     http://localhost:8000/api/v1/workstations | cat
-```
+### Data Synchronization Endpoints
 
-### 2. Get Workstations (`GET /api/v1/workstations`)
+1. **Sync Projects** - `POST /api/v1/sync/projects`
+   - Required Role: Integration or SystemAdmin
+   - Rate Limit: 100 requests per minute
+   - Batch Size: Maximum 1000 projects
+   - Company Isolation: Yes
+   ```json
+   {
+     "projects": [
+       {
+         "code": "PRJ001",
+         "company_guid": "your-company-guid",
+         "due_date": "2024-12-31T23:59:59Z"
+       }
+     ]
+   }
+   ```
 
-**Description:** Retrieve a list of workstations belonging to the authenticated user's company.
+2. **Sync Components** - `POST /api/v1/sync/components`
+   - Required Role: Integration or SystemAdmin
+   - Rate Limit: 100 requests per minute
+   - Batch Size: Maximum 1000 components
+   - Company Isolation: Yes
 
-**Authentication:** Requires `Authorization: Bearer <token>` header.
+## Common Integration Patterns
 
-**Query Parameters:**
-- `type` (optional): Filter by workstation type
-- `active` (optional): Filter by active status (`true` or `false`)
-- `location` (optional): Filter by location (substring match)
+### 1. Web Application Integration
 
-**Response (Success - 200 OK):**
-```json
-{
-  "workstations": [
-    {
-      "guid": "workstation-guid-1",
-      "location": "Production Floor A",
-      "type": "Assembly",
-      "is_active": true,
-      "created_at": "2023-01-01T12:00:00Z"
-    },
-    {
-      "guid": "workstation-guid-2",
-      "location": "Production Floor B",
-      "type": "Machine",
-      "is_active": true,
-      "created_at": "2023-01-02T12:00:00Z"
+```javascript
+// Example of proper token management
+class ApiClient {
+  constructor(baseUrl) {
+    this.baseUrl = baseUrl;
+    this.accessToken = null;
+    this.refreshToken = null;
+    this.tokenExpiry = null;
+  }
+
+  async login(email, password) {
+    const response = await fetch(`${this.baseUrl}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    
+    const data = await response.json();
+    this.accessToken = data.access_token;
+    this.refreshToken = data.refresh_token;
+    this.tokenExpiry = Date.now() + (data.expires_in * 1000);
+  }
+
+  async ensureValidToken() {
+    if (Date.now() >= this.tokenExpiry - 60000) { // Refresh 1 minute before expiry
+      await this.refreshAccessToken();
     }
+  }
+
+  async makeRequest(endpoint, options = {}) {
+    await this.ensureValidToken();
+    return fetch(`${this.baseUrl}${endpoint}`, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Authorization': `Bearer ${this.accessToken}`
+      }
+    });
+  }
+}
+```
+
+### 2. System Integration
+
+```python
+# Example of proper API key usage
+import os
+import requests
+
+class RaFactoryClient:
+    def __init__(self):
+        self.api_key = os.environ.get('RA_FACTORY_API_KEY')
+        self.base_url = 'http://localhost:8000/api/v1'
+        
+    def make_request(self, endpoint, method='GET', data=None):
+        response = requests.request(
+            method,
+            f'{self.base_url}{endpoint}',
+            headers={'X-API-Key': self.api_key},
+            json=data
+        )
+        response.raise_for_status()
+        return response.json()
+        
+    def sync_projects(self, projects):
+        return self.make_request(
+            '/sync/projects',
+            method='POST',
+            data={'projects': projects}
+        )
+```
+
+### 3. Operator Workstation Integration
+
+```python
+# Example of QR code authentication
+class WorkstationClient:
+    def __init__(self, workstation_guid):
+        self.workstation_guid = workstation_guid
+        self.base_url = 'http://localhost:8000/api/v1'
+        self.access_token = None
+        
+    async def authenticate_operator(self, user_guid, pin):
+        response = await self.post('/auth/qr', {
+            'user_guid': user_guid,
+            'workstation_guid': self.workstation_guid,
+            'pin': pin
+        })
+        self.access_token = response['access_token']
+```
+
+## Security Considerations
+
+### 1. Token Storage
+- Never store tokens in localStorage (vulnerable to XSS)
+- Use secure HTTP-only cookies for web applications
+- Store API keys in environment variables
+- Implement proper token rotation
+
+### 2. Error Handling
+- Implement retry logic with exponential backoff
+- Handle token expiration gracefully
+- Log errors without exposing sensitive data
+- Validate all input data
+
+### 3. Rate Limiting
+- Implement client-side rate limiting
+- Use token bucket algorithm
+- Handle 429 responses properly
+- Add jitter to retry attempts
+
+### 4. Data Validation
+- Validate all input data
+- Use proper data types
+- Handle special characters
+- Implement request size limits
+
+## Troubleshooting Guide
+
+### Common Issues
+
+1. **Authentication Failures**
+   - Check token expiration
+   - Verify correct credentials
+   - Ensure proper header format
+   - Check company_guid matches
+
+2. **Permission Denied**
+   - Verify user role
+   - Check company isolation
+   - Validate API key scope
+   - Review access logs
+
+3. **Rate Limiting**
+   - Implement backoff strategy
+   - Batch requests when possible
+   - Monitor usage patterns
+   - Optimize request frequency
+
+### Support Contacts
+
+For technical support:
+- Email: support@rafactory.com
+- Documentation: https://docs.rafactory.com
+- Status Page: https://status.rafactory.com
+
+## Company Fields
+
+Companies now include a new field:
+- `company_index`: Integer between 0-99, unique across all companies
+
+## User Fields
+
+Users now include additional fields:
+- `name`: User's first name
+- `surname`: User's last name
+- `picture_path`: Path to user's profile picture
+
+## Workflow System
+
+The workflow system tracks all interactions within the system. Each workflow entry contains:
+
+- `guid`: Unique identifier
+- `company_guid`: Associated company
+- `company_name`: Company name (for quick reference)
+- `workstation_guid`: Associated workstation (optional)
+- `workstation_name`: Workstation name (optional)
+- `api_key_guid`: Associated API key (optional)
+- `user_guid`: Associated user (optional)
+- `user_name`: User name (optional)
+- `action_type`: Type of action (see below)
+- `action_value`: Additional data for the action (optional)
+- `created_at`: Timestamp of creation
+- `updated_at`: Timestamp of last update
+
+### Workflow Action Types
+
+The following action types are supported:
+
+1. `barcode_scan`: Scanning of barcodes/QR codes
+2. `piece_cut`: Piece cutting operation
+3. `assembly_weld`: Assembly welding operation
+4. `quality_check`: Quality control check
+5. `packaging`: Packaging operation
+6. `shipping`: Shipping operation
+7. `material_request`: Request for materials
+8. `material_received`: Material receipt confirmation
+9. `workstation_login`: User login at workstation
+10. `workstation_logout`: User logout at workstation
+11. `error_report`: Error reporting
+12. `maintenance_request`: Maintenance request
+13. `system_event`: System-level event
+
+### Example Workflow Entry
+
+```json
+{
+  "guid": "550e8400-e29b-41d4-a716-446655440000",
+  "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
+  "company_name": "Example Corp",
+  "workstation_guid": "550e8400-e29b-41d4-a716-446655440001",
+  "workstation_name": "Assembly Line 1",
+  "user_guid": "550e8400-e29b-41d4-a716-446655440002",
+  "user_name": "John Doe",
+  "action_type": "piece_cut",
+  "action_value": "Length: 100mm, Angle: 45°",
+  "created_at": "2025-05-01T14:30:00Z",
+  "updated_at": "2025-05-01T14:30:00Z"
+}
+```
+
+### Invalid Action Type Handling
+
+When an invalid action type is provided, the API will return a 422 Unprocessable Entity response with a list of valid action types:
+
+```json
+{
+  "error": "Invalid action_type provided",
+  "valid_types": [
+    "barcode_scan",
+    "piece_cut",
+    "assembly_weld",
+    // ... other valid types ...
   ]
 }
 ```
-
-**Example:**
-```bash
-curl -X GET -H "Authorization: Bearer <your_access_token>" \
-     "http://localhost:8000/api/v1/workstations?type=Assembly" | cat
-```
-
-### 3. Get Workstation by GUID (`GET /api/v1/workstations/{guid}`)
-
-**Description:** Retrieve details for a specific workstation by its GUID.
-
-**Authentication:** Requires `Authorization: Bearer <token>` header.
-
-**Response (Success - 200 OK):**
-```json
-{
-  "guid": "workstation-guid",
-  "location": "Production Floor A",
-  "type": "Assembly",
-  "is_active": true,
-  "created_at": "2023-01-01T12:00:00Z",
-  "updated_at": "2023-01-02T12:00:00Z"
-}
-```
-
-**Example:**
-```bash
-curl -X GET -H "Authorization: Bearer <your_access_token>" \
-     http://localhost:8000/api/v1/workstations/550e8400-e29b-41d4-a716-446655440000 | cat
-```
-
-### 4. Update Workstation (`PUT /api/v1/workstations/{guid}`)
-
-**Description:** Update workstation details including location, type, and active status.
-
-**Authentication:** Requires `Authorization: Bearer <token>` header with SystemAdmin or CompanyAdmin role.
-
-**Request Body:**
-```json
-{
-  "location": "Updated Floor Location",  // Optional
-  "type": "Control",                     // Optional, must be one of: Machine, Assembly, Control, Logistics, Supply
-  "is_active": false                     // Optional
-}
-```
-
-**Response (Success - 200 OK):**
-```json
-{
-  "guid": "workstation-guid",
-  "location": "Updated Floor Location",
-  "type": "Control",
-  "is_active": false,
-  "updated_at": "2023-01-03T12:00:00Z"
-}
-```
-
-**Example:**
-```bash
-curl -X PUT -H "Content-Type: application/json" \
-     -H "Authorization: Bearer <your_access_token>" \
-     -d '{"location": "Updated Floor Location"}' \
-     http://localhost:8000/api/v1/workstations/550e8400-e29b-41d4-a716-446655440000 | cat
-```
-
-### 5. Delete Workstation (`DELETE /api/v1/workstations/{guid}`)
-
-**Description:** Soft-delete a workstation by setting its `is_active` status to `false`.
-
-**Authentication:** Requires `Authorization: Bearer <token>` header with SystemAdmin or CompanyAdmin role.
-
-**Response (Success - 200 OK):**
-```json
-{
-  "message": "Workstation deactivated successfully",
-  "guid": "workstation-guid"
-}
-```
-
-**Example:**
-```bash
-curl -X DELETE -H "Authorization: Bearer <your_access_token>" \
-     http://localhost:8000/api/v1/workstations/550e8400-e29b-41d4-a716-446655440000 | cat
-``` 

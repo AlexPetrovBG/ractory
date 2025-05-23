@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from pydantic import ValidationError
 
 from app.models.base import get_session
 from app.core.deps import get_current_user, CurrentUser, get_tenant_session
@@ -11,6 +12,7 @@ from app.schemas.sync.main import (
 )
 from app.services.sync_service import SyncService
 from app.models.enums import UserRole
+from app.core.tenant_utils import verify_tenant_access, validate_company_access
 
 router = APIRouter(
     prefix="/sync",
@@ -25,6 +27,7 @@ router = APIRouter(
 @router.post("/projects", response_model=SyncResult, dependencies=[Depends(require_scopes("sync:write"))])
 async def sync_projects(
     data: ProjectBulkInsert,
+    request: Request,
     current_user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_tenant_session)
 ):
@@ -33,6 +36,16 @@ async def sync_projects(
     
     Requires API key with sync:write scope or SystemAdmin/CompanyAdmin/Integration role.
     """
+    # Verify all projects belong to the user's company before processing the data
+    # This ensures company validation happens before other validation errors
+    for project in data.projects:
+        await validate_company_access(
+            request, 
+            project.company_guid, 
+            current_user.tenant, 
+            current_user.role
+        )
+    
     # Perform bulk upsert using service
     result = await SyncService.sync_projects(data.projects, current_user.tenant, session)
     
@@ -41,6 +54,7 @@ async def sync_projects(
 @router.post("/components", response_model=SyncResult, dependencies=[Depends(require_scopes("sync:write"))])
 async def sync_components(
     data: ComponentBulkInsert,
+    request: Request,
     current_user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_tenant_session)
 ):
@@ -49,14 +63,24 @@ async def sync_components(
     
     Requires API key with sync:write scope or SystemAdmin/CompanyAdmin/Integration role.
     """
+    # Verify all components belong to the user's company
+    for component in data.components:
+        await validate_company_access(
+            request, 
+            component.company_guid, 
+            current_user.tenant, 
+            current_user.role
+        )
+    
     # Perform bulk upsert using service
-    result = await SyncService.upsert_components(data.components, current_user.tenant, session)
+    result = await SyncService.sync_components(data.components, current_user.tenant, session)
     
     return SyncResult(**result)
 
 @router.post("/assemblies", response_model=SyncResult, dependencies=[Depends(require_scopes("sync:write"))])
 async def sync_assemblies(
     data: AssemblyBulkInsert,
+    request: Request,
     current_user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_tenant_session)
 ):
@@ -65,14 +89,24 @@ async def sync_assemblies(
     
     Requires API key with sync:write scope or SystemAdmin/CompanyAdmin/Integration role.
     """
+    # Verify all assemblies belong to the user's company
+    for assembly in data.assemblies:
+        await validate_company_access(
+            request, 
+            assembly.company_guid, 
+            current_user.tenant, 
+            current_user.role
+        )
+    
     # Perform bulk upsert using service
-    result = await SyncService.upsert_assemblies(data.assemblies, current_user.tenant, session)
+    result = await SyncService.sync_assemblies(data.assemblies, current_user.tenant, session)
     
     return SyncResult(**result)
 
 @router.post("/pieces", response_model=SyncResult, dependencies=[Depends(require_scopes("sync:write"))])
 async def sync_pieces(
     data: PieceBulkInsert,
+    request: Request,
     current_user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_tenant_session)
 ):
@@ -89,14 +123,24 @@ async def sync_pieces(
             detail="Maximum batch size is 1000 pieces"
         )
     
+    # Verify all pieces belong to the user's company
+    for piece in data.pieces:
+        await validate_company_access(
+            request, 
+            piece.company_guid, 
+            current_user.tenant, 
+            current_user.role
+        )
+    
     # Perform bulk upsert using service
-    result = await SyncService.upsert_pieces(data.pieces, current_user.tenant, session)
+    result = await SyncService.sync_pieces(data.pieces, current_user.tenant, session)
     
     return SyncResult(**result)
 
 @router.post("/articles", response_model=SyncResult, dependencies=[Depends(require_scopes("sync:write"))])
 async def sync_articles(
     data: ArticleBulkInsert,
+    request: Request,
     current_user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_tenant_session)
 ):
@@ -105,7 +149,16 @@ async def sync_articles(
     
     Requires API key with sync:write scope or SystemAdmin/CompanyAdmin/Integration role.
     """
+    # Verify all articles belong to the user's company
+    for article in data.articles:
+        await validate_company_access(
+            request, 
+            article.company_guid, 
+            current_user.tenant, 
+            current_user.role
+        )
+    
     # Perform bulk upsert using service
-    result = await SyncService.upsert_articles(data.articles, current_user.tenant, session)
+    result = await SyncService.sync_articles(data.articles, current_user.tenant, session)
     
     return SyncResult(**result) 

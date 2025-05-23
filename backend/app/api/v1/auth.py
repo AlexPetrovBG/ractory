@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends, Response, Cookie
 from typing import Optional
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.schemas.auth import (
     LoginRequest, TokenResponse, RefreshRequest, QrLoginRequest, ErrorResponse
@@ -10,7 +11,9 @@ from app.services.auth_service import AuthService
 from app.utils.security import decode_token
 from app.models.enums import UserRole
 from app.core.rbac import require_system_admin
-from app.core.deps import get_current_user, CurrentUser, get_session
+from app.core.deps import get_current_user, CurrentUser, get_session, get_db_user
+from app.models.user import User
+from app.models.workstation import Workstation
 
 router = APIRouter(
     prefix="/auth",
@@ -116,6 +119,18 @@ async def qr_login(qr_data: QrLoginRequest, session: AsyncSession = Depends(get_
     
     Returns a workstation-scoped JWT valid for 1 hour.
     """
+    # First verify that the workstation exists
+    workstation_query = select(Workstation).where(Workstation.guid == qr_data.workstation_guid)
+    workstation_result = await session.execute(workstation_query)
+    workstation = workstation_result.scalars().first()
+    
+    if not workstation:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Workstation not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     result = await AuthService.validate_qr_login(
         qr_data.user_guid, 
         qr_data.workstation_guid, 
@@ -126,7 +141,8 @@ async def qr_login(qr_data: QrLoginRequest, session: AsyncSession = Depends(get_
     if not result:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid QR login credentials"
+            detail="Invalid QR login credentials",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     
     return TokenResponse(**result)
@@ -144,13 +160,34 @@ async def protected_route(current_user: CurrentUser = Depends(get_current_user))
     }
 
 @router.get("/me")
-async def get_current_user_info(current_user: CurrentUser = Depends(get_current_user)):
+async def get_current_user_info(
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
+):
     """
     Get information about the current authenticated user.
     """
+    # For API key authentication
+    if current_user.extras.get("auth_type") == "api_key":
+        return {
+            "guid": current_user.user_id,
+            "email": None,  # API keys don't have associated email
+            "role": current_user.role,
+            "company_guid": current_user.tenant,
+            "auth_type": "api_key",
+            "scopes": current_user.extras.get("scopes", "")
+        }
+    
+    # For regular user authentication, get user from database
+    result = await session.execute(
+        select(User).where(User.guid == current_user.user_id)
+    )
+    db_user = result.scalars().first()
+    
     return {
         "guid": current_user.user_id,
-        "email": current_user.email if hasattr(current_user, "email") else None,
+        "email": db_user.email if db_user else None,
         "role": current_user.role,
         "company_guid": current_user.tenant,
+        "auth_type": "jwt"
     } 

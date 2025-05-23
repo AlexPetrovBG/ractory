@@ -28,18 +28,47 @@ async def create_api_key(
     Create a new API key for the current company.
     
     Only CompanyAdmin and SystemAdmin can create API keys.
+    SystemAdmin can create keys for any company by providing company_guid.
     The raw API key is only returned once in the response.
+    
+    If a key is provided, it must be unique and follow the format rfk_*.
+    If no key is provided, a random one will be generated.
     """
-    company_guid = uuid.UUID(current_user.tenant)
+    # Use provided company_guid for SystemAdmin or default to current user's company
+    if current_user.role == UserRole.SYSTEM_ADMIN and api_key.company_guid:
+        company_guid = api_key.company_guid
+    else:
+        company_guid = uuid.UUID(current_user.tenant)
+    
+    # Verify company exists if SystemAdmin is creating for another company
+    if current_user.role == UserRole.SYSTEM_ADMIN and str(company_guid) != current_user.tenant:
+        from sqlalchemy import select
+        from app.models.company import Company
+        
+        # Check if company exists
+        result = await session.execute(
+            select(Company).where(Company.guid == company_guid)
+        )
+        company = result.scalars().first()
+        
+        if not company:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Company with GUID {company_guid} not found"
+            )
     
     try:
         result = await ApiKeyService.create_api_key(
             company_guid=company_guid,
             description=api_key.description,
             scopes=api_key.scopes,
+            key=api_key.key,
             session=session
         )
         return result
+    except HTTPException:
+        # Re-raise HTTPExceptions (like 422 from scope validation) directly
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -92,6 +121,14 @@ async def get_api_key(
                 detail=f"API key with GUID {guid} not found"
             )
             
+        # ADD THIS: Explicit company check for non-SystemAdmins
+        if current_user.role != UserRole.SYSTEM_ADMIN and str(api_key.company_guid) != str(current_user.tenant):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this API key."
+            )
+        # END ADD
+            
         return api_key
     except HTTPException:
         raise
@@ -123,6 +160,14 @@ async def update_api_key(
                 detail=f"API key with GUID {guid} not found"
             )
         
+        # ADD THIS: Explicit company check for non-SystemAdmins
+        if current_user.role != UserRole.SYSTEM_ADMIN and str(existing_key.company_guid) != str(current_user.tenant):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to update this API key."
+            )
+        # END ADD
+
         # Update the API key
         updated_key = await ApiKeyService.update_api_key(
             guid=guid,
@@ -161,6 +206,14 @@ async def delete_api_key(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"API key with GUID {guid} not found"
             )
+        
+        # ADD THIS: Explicit company check for non-SystemAdmins
+        if current_user.role != UserRole.SYSTEM_ADMIN and str(existing_key.company_guid) != str(current_user.tenant):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to delete this API key."
+            )
+        # END ADD
         
         # Delete the API key
         success = await ApiKeyService.delete_api_key(guid, session)

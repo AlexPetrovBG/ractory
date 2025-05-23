@@ -2,22 +2,21 @@ from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, LargeBinar
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+import uuid
 
-from .base import Base
+from .base import Base, TimestampMixin
 
-class Assembly(Base):
+class Assembly(Base, TimestampMixin):
     __tablename__ = "assemblies"
     
-    id = Column(Integer, primary_key=True) # From RaConnect
-    id_project = Column(Integer, ForeignKey("projects.id"), nullable=False)
-    id_component = Column(Integer, ForeignKey("components.id"), nullable=False)
+    guid = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_guid = Column(UUID(as_uuid=True), ForeignKey("projects.guid"), nullable=False)
+    component_guid = Column(UUID(as_uuid=True), ForeignKey("components.guid"), nullable=False)
     trolley_cell = Column(String, nullable=True)
     trolley = Column(String, nullable=True)
     cell_number = Column(Integer, nullable=True)
     picture = Column(LargeBinary, nullable=True)
     company_guid = Column(UUID(as_uuid=True), ForeignKey("companies.guid"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     project = relationship("Project", back_populates="assemblies")
@@ -26,4 +25,4 @@ class Assembly(Base):
     company = relationship("Company", back_populates="assemblies")
     
     def __repr__(self):
-        return f"<Assembly id={self.id}, component_id={self.id_component}>" 
+        return f"<Assembly guid={self.guid}, component_guid={self.component_guid}>" 

@@ -4,15 +4,26 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 import time
 from contextlib import asynccontextmanager
-from sqlalchemy import text
+from sqlalchemy import text, event
+from sqlalchemy.ext.asyncio import AsyncSession
+import json
 
 from app.api.v1.api import api_router as api_v1_router
 from app.schemas.auth import ErrorResponse
 from app.models.base import engine
+from app.version import get_version_info
+from app.core.middlewares import TenantIsolationMiddleware, register_tenant_isolation_listeners
 
 # Setup RLS policies on startup
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Register SQLAlchemy event listeners for tenant isolation
+    try:
+        register_tenant_isolation_listeners()
+        print("Registered tenant isolation event listeners")
+    except Exception as e:
+        print(f"Error registering tenant isolation listeners: {e}")
+
     # Step 1: Enable RLS on all tables
     try:
         async with engine.begin() as conn:
@@ -87,10 +98,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Ra Factory API",
-    description="Factory management API for RaWorkshop",
+    description="""
+    Factory management API for RaWorkshop.
+    """,
     version="0.1.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    # Enable automatic redirect for trailing slashes to make behavior flexible
+    redirect_slashes=True
 )
+
+# Add tenant isolation middleware
+app.add_middleware(TenantIsolationMiddleware)
 
 # CORS middleware setup
 app.add_middleware(
@@ -115,20 +133,65 @@ async def add_process_time_header(request: Request, call_next):
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = []
     for error in exc.errors():
-        errors.append(f"{error['loc'][-1]}: {error['msg']}")
+        field = ".".join(str(x) for x in error["loc"])
+        errors.append({
+            "field": field,
+            "message": error["msg"],
+            "type": error["type"]
+        })
     
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"error": "Validation error", "detail": errors},
+        content={
+            "error": "Validation Error",
+            "detail": errors,
+            "docs_url": "/docs#/validation-errors"
+        },
     )
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
+    error_response = {
+        "error": exc.detail,
+        "status_code": exc.status_code
+    }
+    
+    # Add helpful messages for common errors
+    if exc.status_code == 404:
+        error_response["suggestion"] = "Check if you're using the correct URL and trailing slash"
+    elif exc.status_code == 401:
+        error_response["suggestion"] = "Please check your authentication token"
+    elif exc.status_code == 403:
+        error_response["suggestion"] = "You don't have permission to perform this action"
+    
     return JSONResponse(
         status_code=exc.status_code,
-        content={"error": exc.detail},
+        content=error_response,
         headers=exc.headers,
     )
+
+# Add JSON formatting middleware
+@app.middleware("http")
+async def format_json_response(request: Request, call_next):
+    response = await call_next(request)
+    
+    if response.headers.get("content-type") == "application/json":
+        try:
+            body = [chunk async for chunk in response.body_iterator]
+            body = b"".join(body)
+            json_body = json.loads(body.decode())
+            
+            return JSONResponse(
+                content=json_body,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type="application/json"
+            )
+        except Exception as e:
+            print(f"Error formatting JSON response: {e}")
+            return response
+    
+    return response
 
 # Include API router
 app.include_router(api_v1_router)
@@ -138,16 +201,30 @@ app.include_router(api_v1_router)
 async def health_check():
     """
     Health check endpoint to verify the service is running.
+    Returns version information and status.
     """
-    return {"status": "ok", "version": "0.1.0"}
+    version_info = get_version_info()
+    return {
+        "status": "healthy",
+        "version": version_info["version"],
+        "api_version": version_info["api_version"]
+    }
 
 # Add a more consistent health endpoint following API paths
 @app.get("/api/v1/health")
 async def api_health_check():
     """
     Health check endpoint for API v1.
+    Returns detailed version information and status.
     """
-    return {"status": "ok", "version": "0.1.0"}
+    version_info = get_version_info()
+    return {
+        "status": "healthy",
+        "version": version_info["version"],
+        "api_version": version_info["api_version"],
+        "environment": "development",
+        "database": "connected"
+    }
 
 # API root with docs redirect
 @app.get("/")

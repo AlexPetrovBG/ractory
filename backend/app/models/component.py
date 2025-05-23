@@ -2,21 +2,20 @@ from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, LargeBinar
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+import uuid
 
-from .base import Base
+from .base import Base, TimestampMixin
 
-class Component(Base):
+class Component(Base, TimestampMixin):
     __tablename__ = "components"
     
-    id = Column(Integer, primary_key=True) # From RaConnect
+    guid = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     code = Column(String, nullable=False)
     designation = Column(String, nullable=True)
-    id_project = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    project_guid = Column(UUID(as_uuid=True), ForeignKey("projects.guid"), nullable=False)
     quantity = Column(Integer, nullable=False, default=1)
     picture = Column(LargeBinary, nullable=True)
     company_guid = Column(UUID(as_uuid=True), ForeignKey("companies.guid"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     project = relationship("Project", back_populates="components")
@@ -26,4 +25,4 @@ class Component(Base):
     company = relationship("Company", back_populates="components")
     
     def __repr__(self):
-        return f"<Component id={self.id}, code={self.code}, project_id={self.id_project}>" 
+        return f"<Component guid={self.guid}, code={self.code}, project_guid={self.project_guid}>" 

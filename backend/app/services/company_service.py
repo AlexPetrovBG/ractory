@@ -24,6 +24,12 @@ class CompanyService:
         return result.scalars().first()
     
     @staticmethod
+    async def get_company_by_index(db: AsyncSession, index: int) -> Optional[Company]:
+        """Get a company by its index."""
+        result = await db.execute(select(Company).filter(Company.company_index == index))
+        return result.scalars().first()
+    
+    @staticmethod
     async def get_company(db: AsyncSession, company_guid: uuid.UUID) -> Optional[Company]:
         """Get a company by its GUID."""
         result = await db.execute(select(Company).filter(Company.guid == company_guid))

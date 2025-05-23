@@ -1,1 +1,0 @@
-print("Generating hash for password..."); from passlib.context import CryptContext; pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto"); hash = pwd_ctx.hash("password"); print(f"Hash: {hash}")

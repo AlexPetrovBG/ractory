@@ -9,7 +9,8 @@ class ApiKeyBase(BaseModel):
 
 
 class ApiKeyCreate(ApiKeyBase):
-    pass
+    key: Optional[str] = Field(None, example="rfk_customkey123456789", description="Optional custom API key. Must start with 'rfk_' and be unique")
+    company_guid: Optional[UUID4] = Field(None, description="Company GUID (for SystemAdmin only). If not provided, uses the authenticated user's company")
 
 
 class ApiKeyCreated(BaseModel):

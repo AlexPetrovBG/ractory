@@ -11,6 +11,8 @@ from .article import Article
 from .apikey import ApiKey
 from .workstation import Workstation
 from .ui_template import UiTemplate
+from .workflow import Workflow
+from .enums import UserRole, WorkstationType, WorkflowActionType
 
 __all__ = [
     "Base", 
@@ -24,7 +26,11 @@ __all__ = [
     "Article",
     "ApiKey",
     "Workstation",
-    "UiTemplate"
+    "UiTemplate",
+    "Workflow",
+    "UserRole",
+    "WorkstationType",
+    "WorkflowActionType"
 ]
 
 # Models package 

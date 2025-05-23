@@ -6,17 +6,15 @@ import uuid
 class ProjectBase(BaseModel):
     """Base schema for Project fields."""
     code: str
-    creation_date: datetime
     updated_at: Optional[datetime] = None
     due_date: Optional[datetime] = None
-    check_sum: Optional[str] = None
     in_production: bool = False
     company_name: Optional[str] = None
 
 class ProjectCreate(ProjectBase):
     """Schema for creating a Project."""
-    id: int
-    company_guid: Optional[str] = None  # Will be set from token if not provided
+    guid: uuid.UUID = Field(default_factory=uuid.uuid4)
+    company_guid: Optional[uuid.UUID] = None  # Will be set from token if not provided
     updated_at: Optional[datetime] = None
 
 class ProjectBulkInsert(BaseModel):
@@ -25,21 +23,23 @@ class ProjectBulkInsert(BaseModel):
 
 class ProjectResponse(ProjectBase):
     """Schema for Project responses."""
-    id: int
-    company_guid: str
+    guid: uuid.UUID
+    company_guid: uuid.UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 class ProjectDetail(ProjectResponse):
     """Detailed Project schema with component counts."""
     component_count: int = 0
     piece_count: int = 0
     
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 class SyncResult(BaseModel):
     """Result of a sync operation."""

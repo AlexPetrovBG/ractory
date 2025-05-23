@@ -18,7 +18,7 @@ allow_system_or_company_admin = RoleChecker(["SystemAdmin", "CompanyAdmin"])
 allow_system_admin = RoleChecker(["SystemAdmin"])
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=UserResponse)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=UserResponse)
 async def create_user(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db),
@@ -66,7 +66,10 @@ async def create_user(
         role=user_data.role,
         company_guid=user_data.company_guid,
         is_active=True,
-        pin=user_data.pin
+        pin=user_data.pin,
+        name=user_data.name,
+        surname=user_data.surname,
+        picture_path=user_data.picture_path
     )
     
     # Add and commit to database
@@ -77,20 +80,36 @@ async def create_user(
     return user
 
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("", response_model=List[UserResponse])
 async def get_users(
     role: Optional[str] = Query(None, description="Filter by role"),
     active: Optional[bool] = Query(None, description="Filter by active status"),
+    company_guid: Optional[UUID] = Query(None, description="Filter by company GUID"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     """
-    Get all users from the current user's company.
-    Can be filtered by role and active status.
+    Get users based on filters and permissions.
+    - SystemAdmin can view all users or filter by company
+    - Other roles can only view users from their own company
     """
-    query = select(User).filter(User.company_guid == current_user.company_guid)
+    # Start with base query
+    query = select(User)
     
-    # Apply filters if provided
+    # Handle company access based on role
+    if current_user.role != "SystemAdmin":
+        # Non-SystemAdmin users can only see their own company's users
+        query = query.filter(User.company_guid == current_user.company_guid)
+        if company_guid and company_guid != current_user.company_guid:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to view users from other companies"
+            )
+    elif company_guid:
+        # SystemAdmin can filter by company if requested
+        query = query.filter(User.company_guid == company_guid)
+    
+    # Apply additional filters if provided
     if role:
         query = query.filter(User.role == role)
     if active is not None:
@@ -159,20 +178,19 @@ async def update_user(
             )
         
         # Regular users can only update themselves and not their role
-        if current_user.role not in ["SystemAdmin", "CompanyAdmin"]:
-            if current_user.guid != user.guid:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You can only update your own account"
-                )
-            if user_data.role is not None:
+        if current_user.guid != user.guid:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only update your own account"
+            )
+            if hasattr(user_data, 'role') and user_data.role is not None:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="You cannot change your role"
                 )
     
     # Check role update permissions using the role hierarchy
-    if user_data.role is not None:
+    if hasattr(user_data, 'role') and user_data.role is not None:
         # Check if current user can manage both the user's current role and the target role
         if not (can_manage_role(current_user.role, user.role) and 
                 can_manage_role(current_user.role, user_data.role)):
@@ -182,7 +200,7 @@ async def update_user(
             )
     
     # Update fields
-    if user_data.email is not None:
+    if hasattr(user_data, 'email') and user_data.email is not None:
         # Check if email exists for another user
         result = await db.execute(select(User).filter(User.email == user_data.email, User.guid != guid))
         existing = result.scalars().first()
@@ -193,17 +211,26 @@ async def update_user(
             )
         user.email = user_data.email
     
-    if user_data.password is not None:
+    if hasattr(user_data, 'password') and user_data.password is not None:
         user.pwd_hash = hash_password(user_data.password)
     
-    if user_data.role is not None:
+    if hasattr(user_data, 'role') and user_data.role is not None:
         user.role = user_data.role
     
-    if user_data.is_active is not None:
+    if hasattr(user_data, 'is_active') and user_data.is_active is not None:
         user.is_active = user_data.is_active
     
-    if user_data.pin is not None:
+    if hasattr(user_data, 'pin') and user_data.pin is not None:
         user.pin = user_data.pin
+        
+    if 'name' in user_data.__dict__:
+        user.name = user_data.name
+        
+    if 'surname' in user_data.__dict__:
+        user.surname = user_data.surname
+        
+    if 'picture_path' in user_data.__dict__:
+        user.picture_path = user_data.picture_path
     
     # Commit changes
     await db.commit()

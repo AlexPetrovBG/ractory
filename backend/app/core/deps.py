@@ -11,6 +11,7 @@ from app.models.base import get_session
 from app.models.user import User
 from app.models.apikey import ApiKey
 from app.services.api_key_service import ApiKeyService
+from app.core.tenant_utils import set_tenant_context, add_tenant_filter
 
 # Security scheme for JWT Bearer token
 security = HTTPBearer(auto_error=False)
@@ -28,7 +29,8 @@ class CurrentUser:
 async def get_current_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    x_api_key: Optional[str] = Header(None)
+    x_api_key: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
 ) -> CurrentUser:
     """
     Dependency to extract and validate the current user from JWT token or API key.
@@ -37,6 +39,7 @@ async def get_current_user(
         request: The incoming request
         credentials: The HTTP Bearer token from Authorization header
         x_api_key: API key from X-API-Key header
+        session: Database session
         
     Returns:
         CurrentUser object with user information
@@ -82,9 +85,6 @@ async def get_current_user(
         api_key = credentials.credentials
     
     if api_key:
-        # Get DB session
-        session = next(get_session())
-        
         try:
             # Validate API key
             api_key_info = await ApiKeyService.validate_api_key(api_key, session)
@@ -93,7 +93,7 @@ async def get_current_user(
                 # Create CurrentUser from API key info
                 return CurrentUser(
                     user_id=api_key_info["guid"],
-                    tenant=api_key_info["company_guid"],
+                    tenant=str(api_key_info["company_guid"]),  # Convert UUID to string for consistency
                     role=UserRole.INTEGRATION,  # API keys always have Integration role
                     extras={"scopes": api_key_info.get("scopes", ""), "auth_type": "api_key"}
                 )
@@ -122,13 +122,8 @@ async def get_tenant_session(
     Returns:
         Session with tenant context set
     """
-    # Set PostgreSQL session variables for RLS
-    # For SystemAdmin, we optionally bypass RLS with app.bypass_rls
-    if current_user.role == UserRole.SYSTEM_ADMIN:
-        await session.execute(text("SET app.bypass_rls = true"))
-    else:
-        # For all other roles, set the tenant context
-        await session.execute(f"SET app.tenant = '{current_user.tenant}'")
+    # Set tenant context using the new utility
+    await set_tenant_context(session, current_user.tenant, current_user.role)
     
     return session
 

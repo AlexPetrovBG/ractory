@@ -3,9 +3,9 @@ from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, UUID as pg
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from .base import Base
+from .base import Base, TimestampMixin
 
-class ApiKey(Base):
+class ApiKey(Base, TimestampMixin):
     __tablename__ = "api_keys"
     
     guid = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -14,7 +14,6 @@ class ApiKey(Base):
     description = Column(String, nullable=True)
     scopes = Column(String, nullable=True) # Comma-separated scopes or JSON? Start simple.
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_used_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships

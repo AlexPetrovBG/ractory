@@ -1,21 +1,20 @@
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+import uuid
 
-from .base import Base
+from .base import Base, TimestampMixin
 
-class Project(Base):
+class Project(Base, TimestampMixin):
     __tablename__ = "projects"
     
-    id = Column(Integer, primary_key=True) # From RaConnect
+    guid = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     code = Column(String, nullable=False)
     due_date = Column(DateTime(timezone=True), nullable=True)
     in_production = Column(Boolean, default=False)
     company_name = Column(String, nullable=True) # Denormalized for easier access?
     company_guid = Column(UUID(as_uuid=True), ForeignKey("companies.guid"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     company = relationship("Company", back_populates="projects")
@@ -25,4 +24,4 @@ class Project(Base):
     articles = relationship("Article", back_populates="project")
     
     def __repr__(self):
-        return f"<Project id={self.id}, code={self.code}>" 
+        return f"<Project guid={self.guid}, code={self.code}>" 

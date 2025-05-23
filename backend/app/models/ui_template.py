@@ -3,9 +3,9 @@ from sqlalchemy import Column, String, DateTime, func, UUID as pgUUID, ForeignKe
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 
-from .base import Base
+from .base import Base, TimestampMixin
 
-class UiTemplate(Base):
+class UiTemplate(Base, TimestampMixin):
     __tablename__ = "ui_templates"
     __table_args__ = {'extend_existing': True}
 
@@ -14,8 +14,6 @@ class UiTemplate(Base):
     workstation_guid = Column(pgUUID(as_uuid=True), ForeignKey("workstations.guid"), nullable=True)
     name = Column(String(255), nullable=False)
     json_data = Column(JSON, nullable=False)
-    created_at = Column(DateTime, default=func.now(), nullable=False)
-    updated_at = Column(DateTime, onupdate=func.now(), nullable=True)
     
     # Define relationships
     company = relationship("Company")

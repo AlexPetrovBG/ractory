@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User  # Updated import path for User model
+from app.models.workstation import Workstation  # Added import for Workstation model
 from app.utils.security import verify_password, create_token
 from app.models.enums import UserRole
 
@@ -92,7 +93,7 @@ class AuthService:
         
         Args:
             user_guid: User's UUID from QR code
-            workstation_guid: Workstation UUID
+            workstation_guid: Workstation UUID (validated by the caller)
             pin: User's 6-digit PIN
             session: Database session
             
@@ -104,12 +105,14 @@ class AuthService:
         result = await session.execute(query)
         user = result.scalars().first()
         
-        # Validate PIN and that the user is assigned to this workstation
+        # Validate PIN and that the user exists
         if not user or user.pin != pin:
             return None
         
-        # In a real implementation, would check if user is assigned to this workstation
-        # For now, just creating tokens
+        # Note: Workstation validation is now done at the API endpoint level
+        # to provide more specific error messages
+        
+        # Create tokens with workstation information
         user_dict = {
             "user_id": str(user.guid),
             "email": user.email,

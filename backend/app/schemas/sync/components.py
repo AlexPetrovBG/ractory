@@ -7,15 +7,14 @@ class ComponentBase(BaseModel):
     """Base schema for Component fields."""
     code: str
     designation: Optional[str] = None
-    id_project: int
+    project_guid: uuid.UUID
     quantity: int = 1
     
 class ComponentCreate(ComponentBase):
     """Schema for creating a Component."""
-    id: int
-    created_date: datetime
+    guid: uuid.UUID = Field(default_factory=uuid.uuid4)
     picture: Optional[bytes] = None
-    company_guid: Optional[str] = None  # Will be set from token if not provided
+    company_guid: Optional[uuid.UUID] = None  # Will be set from token if not provided
 
 class ComponentBulkInsert(BaseModel):
     """Schema for bulk inserting Components."""
@@ -23,12 +22,12 @@ class ComponentBulkInsert(BaseModel):
 
 class ComponentResponse(ComponentBase):
     """Schema for Component responses."""
-    id: int
-    company_guid: str
+    guid: uuid.UUID
+    company_guid: uuid.UUID
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ComponentDetail(ComponentResponse):
     """Detailed Component schema with assembly counts."""
@@ -36,4 +35,4 @@ class ComponentDetail(ComponentResponse):
     piece_count: int = 0
     
     class Config:
-        orm_mode = True 
+        from_attributes = True 

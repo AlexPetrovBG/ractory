@@ -1,14 +1,15 @@
 from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+import uuid
 
-from .base import Base
+from .base import Base, TimestampMixin
 
-class Article(Base):
+class Article(Base, TimestampMixin):
     __tablename__ = "articles"
     __table_args__ = {'extend_existing': True}
 
-    id = Column(Integer, primary_key=True)
+    guid = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     code = Column(String, nullable=False)
     designation = Column(String, nullable=True)
     consume_group_designation = Column(String, nullable=True)
@@ -29,11 +30,9 @@ class Article(Base):
     angle2 = Column(Float, nullable=True)
     unit_weight = Column(Float, nullable=True)
     bar_length = Column(Float, nullable=True)
-    id_project = Column(Integer, ForeignKey('projects.id'), nullable=False)
-    id_component = Column(Integer, ForeignKey('components.id'), nullable=False)
+    project_guid = Column(UUID(as_uuid=True), ForeignKey('projects.guid'), nullable=False)
+    component_guid = Column(UUID(as_uuid=True), ForeignKey('components.guid'), nullable=False)
     company_guid = Column(UUID(as_uuid=True), ForeignKey('companies.guid'), nullable=False)
-    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=True)
 
     # Define relationships
     project = relationship("Project", back_populates="articles")
@@ -41,4 +40,4 @@ class Article(Base):
     company = relationship("Company", back_populates="articles")
 
     def __repr__(self):
-        return f"<Article(id={self.id}, code='{self.code}')>" 
+        return f"<Article(guid={self.guid}, code='{self.code}')>" 

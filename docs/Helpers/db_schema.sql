@@ -1,17 +1,9 @@
-# Ra Factory Development Database Schema (Updated)
-        dbname=rafactory_dev,
-        user="rafactory_rw",
-        password="R4fDBP4ssw0rd9X",
-        host="localhost",
-        port=5434
-
-```sql
 --
 -- PostgreSQL database dump
 --
 
 -- Dumped from database version 15.12
--- Dumped by pg_dump version 15.12
+-- Dumped by pg_dump version 16.8 (Ubuntu 16.8-0ubuntu0.24.04.1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -37,9 +29,11 @@ CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
     END;
     $$;
 
+
 ALTER FUNCTION public.update_updated_at_column() OWNER TO rafactory_rw;
 
 SET default_tablespace = '';
+
 SET default_table_access_method = heap;
 
 --
@@ -50,6 +44,7 @@ CREATE TABLE public.alembic_version (
     version_num character varying(32) NOT NULL
 );
 
+
 ALTER TABLE public.alembic_version OWNER TO rafactory_rw;
 
 --
@@ -57,15 +52,17 @@ ALTER TABLE public.alembic_version OWNER TO rafactory_rw;
 --
 
 CREATE TABLE public.api_keys (
-    company_guid uuid NOT NULL,
-    key_hash character varying(64) NOT NULL,
-    created_at timestamp with time zone DEFAULT now(),
-    is_active boolean NOT NULL,
     guid uuid NOT NULL,
+    company_guid uuid NOT NULL,
+    key_hash character varying NOT NULL,
     description character varying,
     scopes character varying,
-    last_used_at timestamp with time zone
+    is_active boolean NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    last_used_at timestamp with time zone,
+    updated_at timestamp with time zone
 );
+
 
 ALTER TABLE public.api_keys OWNER TO rafactory_rw;
 
@@ -74,7 +71,6 @@ ALTER TABLE public.api_keys OWNER TO rafactory_rw;
 --
 
 CREATE TABLE public.articles (
-    id integer NOT NULL,
     code character varying NOT NULL,
     designation character varying,
     consume_group_designation character varying,
@@ -95,73 +91,36 @@ CREATE TABLE public.articles (
     angle2 double precision,
     unit_weight double precision,
     bar_length double precision,
-    id_project integer NOT NULL,
-    id_component integer NOT NULL,
     company_guid uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone
+    updated_at timestamp with time zone,
+    guid uuid NOT NULL,
+    project_guid uuid NOT NULL,
+    component_guid uuid NOT NULL
 );
 
+
 ALTER TABLE public.articles OWNER TO rafactory_rw;
-
---
--- Name: articles_id_seq; Type: SEQUENCE; Schema: public; Owner: rafactory_rw
---
-
-CREATE SEQUENCE public.articles_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-ALTER SEQUENCE public.articles_id_seq OWNER TO rafactory_rw;
-
---
--- Name: articles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: rafactory_rw
---
-
-ALTER SEQUENCE public.articles_id_seq OWNED BY public.articles.id;
 
 --
 -- Name: assemblies; Type: TABLE; Schema: public; Owner: rafactory_rw
 --
 
 CREATE TABLE public.assemblies (
-    id integer NOT NULL,
-    id_project integer NOT NULL,
-    id_component integer NOT NULL,
     trolley_cell character varying,
     trolley character varying,
     cell_number integer,
     picture bytea,
     company_guid uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone
+    updated_at timestamp with time zone,
+    guid uuid NOT NULL,
+    project_guid uuid NOT NULL,
+    component_guid uuid NOT NULL
 );
 
+
 ALTER TABLE public.assemblies OWNER TO rafactory_rw;
-
---
--- Name: assemblies_id_seq; Type: SEQUENCE; Schema: public; Owner: rafactory_rw
---
-
-CREATE SEQUENCE public.assemblies_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-ALTER SEQUENCE public.assemblies_id_seq OWNER TO rafactory_rw;
-
---
--- Name: assemblies_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: rafactory_rw
---
-
-ALTER SEQUENCE public.assemblies_id_seq OWNED BY public.assemblies.id;
 
 --
 -- Name: companies; Type: TABLE; Schema: public; Owner: rafactory_rw
@@ -174,8 +133,11 @@ CREATE TABLE public.companies (
     logo_path character varying,
     is_active boolean NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone NOT NULL
+    updated_at timestamp with time zone NOT NULL,
+    company_index integer,
+    CONSTRAINT company_index_range CHECK (((company_index >= 0) AND (company_index <= 99)))
 );
+
 
 ALTER TABLE public.companies OWNER TO rafactory_rw;
 
@@ -184,45 +146,25 @@ ALTER TABLE public.companies OWNER TO rafactory_rw;
 --
 
 CREATE TABLE public.components (
-    id integer NOT NULL,
     code character varying NOT NULL,
     designation character varying,
-    id_project integer NOT NULL,
     quantity integer NOT NULL,
     picture bytea,
     company_guid uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone
+    updated_at timestamp with time zone,
+    guid uuid NOT NULL,
+    project_guid uuid NOT NULL
 );
 
+
 ALTER TABLE public.components OWNER TO rafactory_rw;
-
---
--- Name: components_id_seq; Type: SEQUENCE; Schema: public; Owner: rafactory_rw
---
-
-CREATE SEQUENCE public.components_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-ALTER SEQUENCE public.components_id_seq OWNER TO rafactory_rw;
-
---
--- Name: components_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: rafactory_rw
---
-
-ALTER SEQUENCE public.components_id_seq OWNED BY public.components.id;
 
 --
 -- Name: pieces; Type: TABLE; Schema: public; Owner: rafactory_rw
 --
 
 CREATE TABLE public.pieces (
-    id integer NOT NULL,
     piece_id character varying NOT NULL,
     outer_length integer,
     angle_left integer,
@@ -272,9 +214,6 @@ CREATE TABLE public.pieces (
     profile_type character varying,
     trolley_size character varying,
     profile_code_with_color character varying,
-    id_project integer NOT NULL,
-    id_component integer NOT NULL,
-    id_assembly integer NOT NULL,
     parent_assembly_trolley_cell character varying,
     mullion_trolley_cell character varying,
     glazing_bead_trolley_cell character varying,
@@ -282,67 +221,33 @@ CREATE TABLE public.pieces (
     project_phase character varying,
     company_guid uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone
+    updated_at timestamp with time zone,
+    guid uuid NOT NULL,
+    project_guid uuid NOT NULL,
+    component_guid uuid NOT NULL,
+    assembly_guid uuid
 );
 
+
 ALTER TABLE public.pieces OWNER TO rafactory_rw;
-
---
--- Name: pieces_id_seq; Type: SEQUENCE; Schema: public; Owner: rafactory_rw
---
-
-CREATE SEQUENCE public.pieces_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-ALTER SEQUENCE public.pieces_id_seq OWNER TO rafactory_rw;
-
---
--- Name: pieces_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: rafactory_rw
---
-
-ALTER SEQUENCE public.pieces_id_seq OWNED BY public.pieces.id;
 
 --
 -- Name: projects; Type: TABLE; Schema: public; Owner: rafactory_rw
 --
 
 CREATE TABLE public.projects (
-    id integer NOT NULL,
     code character varying NOT NULL,
     updated_at timestamp with time zone,
     due_date timestamp with time zone,
     in_production boolean,
     company_name character varying,
     company_guid uuid NOT NULL,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    guid uuid NOT NULL
 );
 
+
 ALTER TABLE public.projects OWNER TO rafactory_rw;
-
---
--- Name: projects_id_seq; Type: SEQUENCE; Schema: public; Owner: rafactory_rw
---
-
-CREATE SEQUENCE public.projects_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-ALTER SEQUENCE public.projects_id_seq OWNER TO rafactory_rw;
-
---
--- Name: projects_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: rafactory_rw
---
-
-ALTER SEQUENCE public.projects_id_seq OWNED BY public.projects.id;
 
 --
 -- Name: ui_templates; Type: TABLE; Schema: public; Owner: rafactory_rw
@@ -358,6 +263,7 @@ CREATE TABLE public.ui_templates (
     updated_at timestamp without time zone
 );
 
+
 ALTER TABLE public.ui_templates OWNER TO rafactory_rw;
 
 --
@@ -372,6 +278,7 @@ CREATE SEQUENCE public.ui_templates_id_seq
     NO MAXVALUE
     CACHE 1;
 
+
 ALTER SEQUENCE public.ui_templates_id_seq OWNER TO rafactory_rw;
 
 --
@@ -379,6 +286,7 @@ ALTER SEQUENCE public.ui_templates_id_seq OWNER TO rafactory_rw;
 --
 
 ALTER SEQUENCE public.ui_templates_id_seq OWNED BY public.ui_templates.id;
+
 
 --
 -- Name: users; Type: TABLE; Schema: public; Owner: rafactory_rw
@@ -393,10 +301,36 @@ CREATE TABLE public.users (
     pin character varying(6),
     is_active boolean NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone,
+    name character varying,
+    surname character varying,
+    picture_path character varying
+);
+
+
+ALTER TABLE public.users OWNER TO rafactory_rw;
+
+--
+-- Name: workflow; Type: TABLE; Schema: public; Owner: rafactory_rw
+--
+
+CREATE TABLE public.workflow (
+    guid uuid NOT NULL,
+    company_guid uuid NOT NULL,
+    company_name character varying,
+    workstation_guid uuid,
+    workstation_name character varying,
+    api_key_guid uuid,
+    user_guid uuid,
+    user_name character varying,
+    action_type character varying NOT NULL,
+    action_value character varying,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone
 );
 
-ALTER TABLE public.users OWNER TO rafactory_rw;
+
+ALTER TABLE public.workflow OWNER TO rafactory_rw;
 
 --
 -- Name: workstations; Type: TABLE; Schema: public; Owner: rafactory_rw
@@ -412,43 +346,15 @@ CREATE TABLE public.workstations (
     updated_at timestamp with time zone
 );
 
+
 ALTER TABLE public.workstations OWNER TO rafactory_rw;
-
---
--- Name: articles id; Type: DEFAULT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.articles ALTER COLUMN id SET DEFAULT nextval('public.articles_id_seq'::regclass);
-
---
--- Name: assemblies id; Type: DEFAULT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.assemblies ALTER COLUMN id SET DEFAULT nextval('public.assemblies_id_seq'::regclass);
-
---
--- Name: components id; Type: DEFAULT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.components ALTER COLUMN id SET DEFAULT nextval('public.components_id_seq'::regclass);
-
---
--- Name: pieces id; Type: DEFAULT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.pieces ALTER COLUMN id SET DEFAULT nextval('public.pieces_id_seq'::regclass);
-
---
--- Name: projects id; Type: DEFAULT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.projects ALTER COLUMN id SET DEFAULT nextval('public.projects_id_seq'::regclass);
 
 --
 -- Name: ui_templates id; Type: DEFAULT; Schema: public; Owner: rafactory_rw
 --
 
 ALTER TABLE ONLY public.ui_templates ALTER COLUMN id SET DEFAULT nextval('public.ui_templates_id_seq'::regclass);
+
 
 --
 -- Name: alembic_version alembic_version_pkc; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
@@ -457,6 +363,7 @@ ALTER TABLE ONLY public.ui_templates ALTER COLUMN id SET DEFAULT nextval('public
 ALTER TABLE ONLY public.alembic_version
     ADD CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num);
 
+
 --
 -- Name: api_keys api_keys_key_hash_key; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
 --
@@ -464,19 +371,14 @@ ALTER TABLE ONLY public.alembic_version
 ALTER TABLE ONLY public.api_keys
     ADD CONSTRAINT api_keys_key_hash_key UNIQUE (key_hash);
 
---
--- Name: articles articles_pkey; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.articles
-    ADD CONSTRAINT articles_pkey PRIMARY KEY (id);
 
 --
--- Name: assemblies assemblies_pkey; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+-- Name: api_keys api_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
 --
 
-ALTER TABLE ONLY public.assemblies
-    ADD CONSTRAINT assemblies_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.api_keys
+    ADD CONSTRAINT api_keys_pkey PRIMARY KEY (guid);
+
 
 --
 -- Name: companies companies_pkey; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
@@ -485,26 +387,46 @@ ALTER TABLE ONLY public.assemblies
 ALTER TABLE ONLY public.companies
     ADD CONSTRAINT companies_pkey PRIMARY KEY (guid);
 
+
 --
--- Name: components components_pkey; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+-- Name: articles pk_articles; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.articles
+    ADD CONSTRAINT pk_articles PRIMARY KEY (guid);
+
+
+--
+-- Name: assemblies pk_assemblies; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.assemblies
+    ADD CONSTRAINT pk_assemblies PRIMARY KEY (guid);
+
+
+--
+-- Name: components pk_components; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
 --
 
 ALTER TABLE ONLY public.components
-    ADD CONSTRAINT components_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT pk_components PRIMARY KEY (guid);
+
 
 --
--- Name: pieces pieces_pkey; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+-- Name: pieces pk_pieces; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
 --
 
 ALTER TABLE ONLY public.pieces
-    ADD CONSTRAINT pieces_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT pk_pieces PRIMARY KEY (guid);
+
 
 --
--- Name: projects projects_pkey; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+-- Name: projects pk_projects; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
 --
 
 ALTER TABLE ONLY public.projects
-    ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT pk_projects PRIMARY KEY (guid);
+
 
 --
 -- Name: ui_templates ui_templates_pkey; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
@@ -513,12 +435,62 @@ ALTER TABLE ONLY public.projects
 ALTER TABLE ONLY public.ui_templates
     ADD CONSTRAINT ui_templates_pkey PRIMARY KEY (id);
 
+
+--
+-- Name: articles uq_articles_guid; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.articles
+    ADD CONSTRAINT uq_articles_guid UNIQUE (guid);
+
+
+--
+-- Name: assemblies uq_assemblies_guid; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.assemblies
+    ADD CONSTRAINT uq_assemblies_guid UNIQUE (guid);
+
+
+--
+-- Name: companies uq_company_index; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.companies
+    ADD CONSTRAINT uq_company_index UNIQUE (company_index);
+
+
+--
+-- Name: components uq_components_guid; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.components
+    ADD CONSTRAINT uq_components_guid UNIQUE (guid);
+
+
+--
+-- Name: pieces uq_pieces_guid; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.pieces
+    ADD CONSTRAINT uq_pieces_guid UNIQUE (guid);
+
+
+--
+-- Name: projects uq_projects_guid; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.projects
+    ADD CONSTRAINT uq_projects_guid UNIQUE (guid);
+
+
 --
 -- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
 --
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_email_key UNIQUE (email);
+
 
 --
 -- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
@@ -527,6 +499,15 @@ ALTER TABLE ONLY public.users
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (guid);
 
+
+--
+-- Name: workflow workflow_pkey; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.workflow
+    ADD CONSTRAINT workflow_pkey PRIMARY KEY (guid);
+
+
 --
 -- Name: workstations workstations_pkey; Type: CONSTRAINT; Schema: public; Owner: rafactory_rw
 --
@@ -534,17 +515,55 @@ ALTER TABLE ONLY public.users
 ALTER TABLE ONLY public.workstations
     ADD CONSTRAINT workstations_pkey PRIMARY KEY (guid);
 
+
 --
 -- Name: ix_companies_name; Type: INDEX; Schema: public; Owner: rafactory_rw
 --
 
 CREATE INDEX ix_companies_name ON public.companies USING btree (name);
 
+
 --
--- Name: api_keys update_api_keys_updated_at; Type: TRIGGER; Schema: public; Owner: rafactory_rw
+-- Name: ix_workflow_action_type; Type: INDEX; Schema: public; Owner: rafactory_rw
 --
 
-CREATE TRIGGER update_api_keys_updated_at BEFORE UPDATE ON public.api_keys FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE INDEX ix_workflow_action_type ON public.workflow USING btree (action_type);
+
+
+--
+-- Name: ix_workflow_company_guid; Type: INDEX; Schema: public; Owner: rafactory_rw
+--
+
+CREATE INDEX ix_workflow_company_guid ON public.workflow USING btree (company_guid);
+
+
+--
+-- Name: ix_workflow_created_at; Type: INDEX; Schema: public; Owner: rafactory_rw
+--
+
+CREATE INDEX ix_workflow_created_at ON public.workflow USING btree (created_at);
+
+
+--
+-- Name: ix_workflow_user_guid; Type: INDEX; Schema: public; Owner: rafactory_rw
+--
+
+CREATE INDEX ix_workflow_user_guid ON public.workflow USING btree (user_guid);
+
+
+--
+-- Name: ix_workflow_workstation_guid; Type: INDEX; Schema: public; Owner: rafactory_rw
+--
+
+CREATE INDEX ix_workflow_workstation_guid ON public.workflow USING btree (workstation_guid);
+
+
+--
+-- Name: api_keys api_keys_updated_at_trigger; Type: TRIGGER; Schema: public; Owner: rafactory_rw
+--
+
+CREATE TRIGGER api_keys_updated_at_trigger BEFORE UPDATE ON public.api_keys FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
 
 --
 -- Name: articles update_articles_updated_at; Type: TRIGGER; Schema: public; Owner: rafactory_rw
@@ -552,11 +571,13 @@ CREATE TRIGGER update_api_keys_updated_at BEFORE UPDATE ON public.api_keys FOR E
 
 CREATE TRIGGER update_articles_updated_at BEFORE UPDATE ON public.articles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+
 --
 -- Name: assemblies update_assemblies_updated_at; Type: TRIGGER; Schema: public; Owner: rafactory_rw
 --
 
 CREATE TRIGGER update_assemblies_updated_at BEFORE UPDATE ON public.assemblies FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
 
 --
 -- Name: companies update_companies_updated_at; Type: TRIGGER; Schema: public; Owner: rafactory_rw
@@ -564,11 +585,13 @@ CREATE TRIGGER update_assemblies_updated_at BEFORE UPDATE ON public.assemblies F
 
 CREATE TRIGGER update_companies_updated_at BEFORE UPDATE ON public.companies FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+
 --
 -- Name: components update_components_updated_at; Type: TRIGGER; Schema: public; Owner: rafactory_rw
 --
 
 CREATE TRIGGER update_components_updated_at BEFORE UPDATE ON public.components FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
 
 --
 -- Name: pieces update_pieces_updated_at; Type: TRIGGER; Schema: public; Owner: rafactory_rw
@@ -576,11 +599,13 @@ CREATE TRIGGER update_components_updated_at BEFORE UPDATE ON public.components F
 
 CREATE TRIGGER update_pieces_updated_at BEFORE UPDATE ON public.pieces FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+
 --
 -- Name: projects update_projects_updated_at; Type: TRIGGER; Schema: public; Owner: rafactory_rw
 --
 
 CREATE TRIGGER update_projects_updated_at BEFORE UPDATE ON public.projects FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
 
 --
 -- Name: ui_templates update_ui_templates_updated_at; Type: TRIGGER; Schema: public; Owner: rafactory_rw
@@ -588,17 +613,20 @@ CREATE TRIGGER update_projects_updated_at BEFORE UPDATE ON public.projects FOR E
 
 CREATE TRIGGER update_ui_templates_updated_at BEFORE UPDATE ON public.ui_templates FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+
 --
 -- Name: users update_users_updated_at; Type: TRIGGER; Schema: public; Owner: rafactory_rw
 --
 
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+
 --
 -- Name: workstations update_workstations_updated_at; Type: TRIGGER; Schema: public; Owner: rafactory_rw
 --
 
 CREATE TRIGGER update_workstations_updated_at BEFORE UPDATE ON public.workstations FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
 
 --
 -- Name: api_keys api_keys_company_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
@@ -607,6 +635,7 @@ CREATE TRIGGER update_workstations_updated_at BEFORE UPDATE ON public.workstatio
 ALTER TABLE ONLY public.api_keys
     ADD CONSTRAINT api_keys_company_guid_fkey FOREIGN KEY (company_guid) REFERENCES public.companies(guid);
 
+
 --
 -- Name: articles articles_company_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
 --
@@ -614,19 +643,6 @@ ALTER TABLE ONLY public.api_keys
 ALTER TABLE ONLY public.articles
     ADD CONSTRAINT articles_company_guid_fkey FOREIGN KEY (company_guid) REFERENCES public.companies(guid);
 
---
--- Name: articles articles_id_component_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.articles
-    ADD CONSTRAINT articles_id_component_fkey FOREIGN KEY (id_component) REFERENCES public.components(id);
-
---
--- Name: articles articles_id_project_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.articles
-    ADD CONSTRAINT articles_id_project_fkey FOREIGN KEY (id_project) REFERENCES public.projects(id);
 
 --
 -- Name: assemblies assemblies_company_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
@@ -635,19 +651,6 @@ ALTER TABLE ONLY public.articles
 ALTER TABLE ONLY public.assemblies
     ADD CONSTRAINT assemblies_company_guid_fkey FOREIGN KEY (company_guid) REFERENCES public.companies(guid);
 
---
--- Name: assemblies assemblies_id_component_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.assemblies
-    ADD CONSTRAINT assemblies_id_component_fkey FOREIGN KEY (id_component) REFERENCES public.components(id);
-
---
--- Name: assemblies assemblies_id_project_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.assemblies
-    ADD CONSTRAINT assemblies_id_project_fkey FOREIGN KEY (id_project) REFERENCES public.projects(id);
 
 --
 -- Name: components components_company_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
@@ -656,12 +659,70 @@ ALTER TABLE ONLY public.assemblies
 ALTER TABLE ONLY public.components
     ADD CONSTRAINT components_company_guid_fkey FOREIGN KEY (company_guid) REFERENCES public.companies(guid);
 
+
 --
--- Name: components components_id_project_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
+-- Name: articles fk_articles_component_guid; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.articles
+    ADD CONSTRAINT fk_articles_component_guid FOREIGN KEY (component_guid) REFERENCES public.components(guid);
+
+
+--
+-- Name: articles fk_articles_project_guid; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.articles
+    ADD CONSTRAINT fk_articles_project_guid FOREIGN KEY (project_guid) REFERENCES public.projects(guid);
+
+
+--
+-- Name: assemblies fk_assemblies_component_guid; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.assemblies
+    ADD CONSTRAINT fk_assemblies_component_guid FOREIGN KEY (component_guid) REFERENCES public.components(guid);
+
+
+--
+-- Name: assemblies fk_assemblies_project_guid; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.assemblies
+    ADD CONSTRAINT fk_assemblies_project_guid FOREIGN KEY (project_guid) REFERENCES public.projects(guid);
+
+
+--
+-- Name: components fk_components_project_guid; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
 --
 
 ALTER TABLE ONLY public.components
-    ADD CONSTRAINT components_id_project_fkey FOREIGN KEY (id_project) REFERENCES public.projects(id);
+    ADD CONSTRAINT fk_components_project_guid FOREIGN KEY (project_guid) REFERENCES public.projects(guid);
+
+
+--
+-- Name: pieces fk_pieces_assembly_guid; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.pieces
+    ADD CONSTRAINT fk_pieces_assembly_guid FOREIGN KEY (assembly_guid) REFERENCES public.assemblies(guid);
+
+
+--
+-- Name: pieces fk_pieces_component_guid; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.pieces
+    ADD CONSTRAINT fk_pieces_component_guid FOREIGN KEY (component_guid) REFERENCES public.components(guid);
+
+
+--
+-- Name: pieces fk_pieces_project_guid; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.pieces
+    ADD CONSTRAINT fk_pieces_project_guid FOREIGN KEY (project_guid) REFERENCES public.projects(guid);
+
 
 --
 -- Name: pieces pieces_company_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
@@ -670,26 +731,6 @@ ALTER TABLE ONLY public.components
 ALTER TABLE ONLY public.pieces
     ADD CONSTRAINT pieces_company_guid_fkey FOREIGN KEY (company_guid) REFERENCES public.companies(guid);
 
---
--- Name: pieces pieces_id_assembly_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.pieces
-    ADD CONSTRAINT pieces_id_assembly_fkey FOREIGN KEY (id_assembly) REFERENCES public.assemblies(id);
-
---
--- Name: pieces pieces_id_component_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.pieces
-    ADD CONSTRAINT pieces_id_component_fkey FOREIGN KEY (id_component) REFERENCES public.components(id);
-
---
--- Name: pieces pieces_id_project_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
---
-
-ALTER TABLE ONLY public.pieces
-    ADD CONSTRAINT pieces_id_project_fkey FOREIGN KEY (id_project) REFERENCES public.projects(id);
 
 --
 -- Name: projects projects_company_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
@@ -698,12 +739,14 @@ ALTER TABLE ONLY public.pieces
 ALTER TABLE ONLY public.projects
     ADD CONSTRAINT projects_company_guid_fkey FOREIGN KEY (company_guid) REFERENCES public.companies(guid);
 
+
 --
 -- Name: ui_templates ui_templates_company_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
 --
 
 ALTER TABLE ONLY public.ui_templates
     ADD CONSTRAINT ui_templates_company_guid_fkey FOREIGN KEY (company_guid) REFERENCES public.companies(guid);
+
 
 --
 -- Name: ui_templates ui_templates_workstation_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
@@ -712,6 +755,7 @@ ALTER TABLE ONLY public.ui_templates
 ALTER TABLE ONLY public.ui_templates
     ADD CONSTRAINT ui_templates_workstation_guid_fkey FOREIGN KEY (workstation_guid) REFERENCES public.workstations(guid);
 
+
 --
 -- Name: users users_company_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
 --
@@ -719,12 +763,38 @@ ALTER TABLE ONLY public.ui_templates
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_company_guid_fkey FOREIGN KEY (company_guid) REFERENCES public.companies(guid);
 
+
+--
+-- Name: workflow workflow_company_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.workflow
+    ADD CONSTRAINT workflow_company_guid_fkey FOREIGN KEY (company_guid) REFERENCES public.companies(guid);
+
+
+--
+-- Name: workflow workflow_user_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.workflow
+    ADD CONSTRAINT workflow_user_guid_fkey FOREIGN KEY (user_guid) REFERENCES public.users(guid);
+
+
+--
+-- Name: workflow workflow_workstation_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE ONLY public.workflow
+    ADD CONSTRAINT workflow_workstation_guid_fkey FOREIGN KEY (workstation_guid) REFERENCES public.workstations(guid);
+
+
 --
 -- Name: workstations workstations_company_guid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: rafactory_rw
 --
 
 ALTER TABLE ONLY public.workstations
     ADD CONSTRAINT workstations_company_guid_fkey FOREIGN KEY (company_guid) REFERENCES public.companies(guid);
+
 
 --
 -- Name: alembic_version; Type: ROW SECURITY; Schema: public; Owner: rafactory_rw
@@ -780,11 +850,13 @@ ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation ON public.api_keys USING (((company_guid = (current_setting('app.tenant'::text))::uuid) OR (current_setting('app.bypass_rls'::text, true) = 'true'::text)));
 
+
 --
 -- Name: articles tenant_isolation; Type: POLICY; Schema: public; Owner: rafactory_rw
 --
 
 CREATE POLICY tenant_isolation ON public.articles USING (((company_guid = (current_setting('app.tenant'::text))::uuid) OR (current_setting('app.bypass_rls'::text, true) = 'true'::text)));
+
 
 --
 -- Name: assemblies tenant_isolation; Type: POLICY; Schema: public; Owner: rafactory_rw
@@ -792,11 +864,13 @@ CREATE POLICY tenant_isolation ON public.articles USING (((company_guid = (curre
 
 CREATE POLICY tenant_isolation ON public.assemblies USING (((company_guid = (current_setting('app.tenant'::text))::uuid) OR (current_setting('app.bypass_rls'::text, true) = 'true'::text)));
 
+
 --
 -- Name: companies tenant_isolation; Type: POLICY; Schema: public; Owner: rafactory_rw
 --
 
 CREATE POLICY tenant_isolation ON public.companies USING (((guid = (current_setting('app.tenant'::text))::uuid) OR (current_setting('app.bypass_rls'::text, true) = 'true'::text)));
+
 
 --
 -- Name: components tenant_isolation; Type: POLICY; Schema: public; Owner: rafactory_rw
@@ -804,11 +878,13 @@ CREATE POLICY tenant_isolation ON public.companies USING (((guid = (current_sett
 
 CREATE POLICY tenant_isolation ON public.components USING (((company_guid = (current_setting('app.tenant'::text))::uuid) OR (current_setting('app.bypass_rls'::text, true) = 'true'::text)));
 
+
 --
 -- Name: pieces tenant_isolation; Type: POLICY; Schema: public; Owner: rafactory_rw
 --
 
 CREATE POLICY tenant_isolation ON public.pieces USING (((company_guid = (current_setting('app.tenant'::text))::uuid) OR (current_setting('app.bypass_rls'::text, true) = 'true'::text)));
+
 
 --
 -- Name: projects tenant_isolation; Type: POLICY; Schema: public; Owner: rafactory_rw
@@ -816,11 +892,13 @@ CREATE POLICY tenant_isolation ON public.pieces USING (((company_guid = (current
 
 CREATE POLICY tenant_isolation ON public.projects USING (((company_guid = (current_setting('app.tenant'::text))::uuid) OR (current_setting('app.bypass_rls'::text, true) = 'true'::text)));
 
+
 --
 -- Name: ui_templates tenant_isolation; Type: POLICY; Schema: public; Owner: rafactory_rw
 --
 
 CREATE POLICY tenant_isolation ON public.ui_templates USING (((company_guid = (current_setting('app.tenant'::text))::uuid) OR (current_setting('app.bypass_rls'::text, true) = 'true'::text)));
+
 
 --
 -- Name: users tenant_isolation; Type: POLICY; Schema: public; Owner: rafactory_rw
@@ -828,11 +906,13 @@ CREATE POLICY tenant_isolation ON public.ui_templates USING (((company_guid = (c
 
 CREATE POLICY tenant_isolation ON public.users USING (((company_guid = (current_setting('app.tenant'::text))::uuid) OR (current_setting('app.bypass_rls'::text, true) = 'true'::text)));
 
+
 --
 -- Name: workstations tenant_isolation; Type: POLICY; Schema: public; Owner: rafactory_rw
 --
 
 CREATE POLICY tenant_isolation ON public.workstations USING (((company_guid = (current_setting('app.tenant'::text))::uuid) OR (current_setting('app.bypass_rls'::text, true) = 'true'::text)));
+
 
 --
 -- Name: ui_templates; Type: ROW SECURITY; Schema: public; Owner: rafactory_rw
@@ -847,6 +927,12 @@ ALTER TABLE public.ui_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: workflow; Type: ROW SECURITY; Schema: public; Owner: rafactory_rw
+--
+
+ALTER TABLE public.workflow ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: workstations; Type: ROW SECURITY; Schema: public; Owner: rafactory_rw
 --
 
@@ -855,4 +941,4 @@ ALTER TABLE public.workstations ENABLE ROW LEVEL SECURITY;
 --
 -- PostgreSQL database dump complete
 --
-``` 
+
