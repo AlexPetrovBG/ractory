@@ -13,6 +13,8 @@ class PieceBase(BaseModel):
     outer_length: Optional[int] = None
     angle_left: Optional[int] = None
     angle_right: Optional[int] = None
+    is_active: bool = True
+    deleted_at: Optional[datetime] = None
     
 class PieceCreate(PieceBase):
     """Schema for creating a Piece."""
@@ -78,6 +80,8 @@ class PieceResponse(PieceBase):
     guid: uuid.UUID
     company_guid: uuid.UUID
     created_at: datetime
+    is_active: bool = True
+    deleted_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True 
@@ -134,4 +138,6 @@ class PieceDetail(PieceResponse):
     glazing_bead_trolley_cell: Optional[str] = None
     picture: Optional[bytes] = None
     project_phase: Optional[str] = None
-    updated_at: Optional[datetime] = None 
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+    deleted_at: Optional[datetime] = None 

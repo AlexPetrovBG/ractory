@@ -1,7 +1,7 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import MetaData, DateTime, Column
+from sqlalchemy import MetaData, DateTime, Column, Boolean
 from sqlalchemy.sql import func
 import os
 from datetime import datetime
@@ -35,11 +35,9 @@ metadata = MetaData()
 Base = declarative_base(metadata=metadata)
 
 class TimestampMixin:
-    """Mixin that adds created_at and updated_at columns to a model.
-    
-    This mixin should be used with all models that need to track creation
-    and modification timestamps. It automatically sets created_at on insert
-    and updated_at is handled by a database trigger.
+    """Mixin that adds created_at, updated_at, is_active, and deleted_at columns to a model.
+    This mixin should be used with all models that need to track creation, modification, and soft deletion timestamps.
+    Automatically sets created_at on insert and updated_at is handled by a database trigger.
     """
     created_at = Column(
         DateTime(timezone=True),
@@ -50,6 +48,8 @@ class TimestampMixin:
         DateTime(timezone=True),
         nullable=True
     )
+    is_active = Column(Boolean, nullable=False, default=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
 # Session dependency
 async def get_session() -> AsyncSession:

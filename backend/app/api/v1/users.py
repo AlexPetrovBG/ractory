@@ -168,35 +168,50 @@ async def update_user(
             detail="User not found"
         )
     
-    # Authorization checks
-    if current_user.role != "SystemAdmin":
-        # Non-SystemAdmin can only update users in their company
+    is_updating_self = (current_user.guid == user.guid)
+
+    # Role change attempt?
+    changing_role = hasattr(user_data, 'role') and user_data.role is not None and user_data.role != user.role
+
+    if current_user.role == "SystemAdmin":
+        # SystemAdmin: Check role management logic if changing role
+        if changing_role:
+            if not (can_manage_role(current_user.role, user.role) and \
+                    can_manage_role(current_user.role, user_data.role)):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="SystemAdmin: Not authorized to make this role transition."
+                )
+    elif current_user.role == "CompanyAdmin":
+        # CompanyAdmin: Must be within the same company
         if user.company_guid != current_user.company_guid:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to update users from other companies"
+                detail="CompanyAdmin: Not authorized to update users from other companies."
             )
-        
-        # Regular users can only update themselves and not their role
-        if current_user.guid != user.guid:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only update your own account"
-            )
-            if hasattr(user_data, 'role') and user_data.role is not None:
+        if changing_role:
+            if is_updating_self:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You cannot change your role"
+                    detail="CompanyAdmin: You cannot change your own role."
                 )
-    
-    # Check role update permissions using the role hierarchy
-    if hasattr(user_data, 'role') and user_data.role is not None:
-        # Check if current user can manage both the user's current role and the target role
-        if not (can_manage_role(current_user.role, user.role) and 
-                can_manage_role(current_user.role, user_data.role)):
+            # Check role management for updating another user
+            if not (can_manage_role(current_user.role, user.role) and \
+                    can_manage_role(current_user.role, user_data.role)):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="CompanyAdmin: Not authorized to make this role transition for the user."
+                )
+    else: # ProjectManager, Operator, etc.
+        if not is_updating_self:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to manage this role"
+                detail="You can only update your own account."
+            )
+        if changing_role: 
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot change your own role."
             )
     
     # Update fields

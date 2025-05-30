@@ -461,4 +461,41 @@ This structure ensures comprehensive testing of all entity types, their relation
 [X] Company A can't modify Company B articles
 [X] Company A can't modify Company B workstations
 [X] Company A can't modify Company B users
-[X] Company B can't modify Company A assemblies 
+[X] Company B can't modify Company A assemblies
+
+### 11. Soft Delete, Cascade, Restore, and Reactivation Tests
+
+#### 11.1 Soft Delete via REST Endpoint
+[X] DELETE /api/v1/projects/{guid} soft deletes project and cascades to children
+[X] DELETE /api/v1/components/{guid} soft deletes component and cascades to children
+[X] DELETE /api/v1/assemblies/{guid} soft deletes assembly and cascades to children
+[X] DELETE /api/v1/pieces/{guid} soft deletes piece
+[X] DELETE /api/v1/articles/{guid} soft deletes article
+
+#### 11.2 Soft Delete via Sync Endpoint
+[X] Sync endpoint soft deletes children not present in payload (with new deleted_at)
+[X] Sync endpoint reactivates soft-deleted entity if provided in payload
+
+#### 11.3 Cascade Soft Delete
+[X] Soft deleting a parent cascades to all active children recursively (same deleted_at)
+[X] All cascaded entities have the same deleted_at timestamp
+
+#### 11.4 Selective Restore
+[X] POST /api/v1/{entity}/{guid}/restore restores entity and only children with matching deleted_at
+[X] Restored entities have is_active = TRUE and deleted_at = NULL
+[X] Other soft-deleted children remain inactive
+
+#### 11.5 Reactivation via Sync
+[X] Syncing a soft-deleted entity with updated data reactivates and updates it
+[X] Reactivated entity has is_active = TRUE and deleted_at = NULL
+
+#### 11.6 GET with/without Inactive
+[X] GET endpoints return only active entities by default
+[X] GET endpoints return soft-deleted entities when ?include_inactive=true is used
+
+#### 11.7 Edge Cases
+[X] Multiple generations of soft-deleted children (deep cascade)
+[X] Partial soft delete and selective restoration
+[X] Sync reactivation edge cases
+
+> All above tested and verified in `src/ractory/backend/test_edge_cases.py` and related integration/unit tests. 

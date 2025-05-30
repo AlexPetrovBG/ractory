@@ -1182,3 +1182,77 @@ When an invalid action type is provided, the API will return a 422 Unprocessable
   ]
 }
 ```
+
+## Soft Delete & Restoration
+
+### New Fields
+All major entities now include:
+- `is_active` (boolean): Indicates if the entity is active (not soft-deleted)
+- `deleted_at` (timestamp, nullable): When set, indicates the entity was soft-deleted at this time
+
+**Entities:**
+- projects
+- components
+- assemblies
+- pieces
+- articles
+
+### Soft Delete Endpoints
+- `DELETE /api/v1/projects/{guid}`
+- `DELETE /api/v1/components/{guid}`
+- `DELETE /api/v1/assemblies/{guid}`
+- `DELETE /api/v1/pieces/{guid}`
+- `DELETE /api/v1/articles/{guid}`
+
+**Effect:** Sets `is_active = false`, `deleted_at = NOW()` for the entity and all active children (cascade).
+
+#### Example: Soft delete a component
+```bash
+curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/components/{component_guid}
+```
+
+### Restore Endpoints
+- `POST /api/v1/projects/{guid}/restore`
+- `POST /api/v1/components/{guid}/restore`
+- `POST /api/v1/assemblies/{guid}/restore`
+- `POST /api/v1/pieces/{guid}/restore`
+- `POST /api/v1/articles/{guid}/restore`
+
+**Effect:** Sets `is_active = true`, `deleted_at = NULL` for the entity and only children with matching deleted_at (selective restore).
+
+#### Example: Restore a component
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/components/{component_guid}/restore
+```
+
+### Sync Reactivation
+If a soft-deleted entity is provided in a sync payload, it is reactivated and updated.
+
+#### Example: Reactivate a soft-deleted component via sync
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     -d '{"components": [{"guid": "...", "code": "UPDATED", ...}]}' \
+     http://localhost:8000/api/v1/sync/components
+```
+
+### Querying Inactive Entities
+All GET endpoints filter by `is_active = true` by default. To include soft-deleted entities, use:
+- `?include_inactive=true`
+
+#### Example: Get all components including soft-deleted
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/components?include_inactive=true
+```
+
+### Field Reference
+| Field       | Type      | Description                                 |
+|-------------|-----------|---------------------------------------------|
+| is_active   | boolean   | True if entity is active, false if deleted  |
+| deleted_at  | timestamp | When entity was soft deleted, or null       |
+
+### Notes
+- Cascade and selective restore logic applies recursively to all children.
+- See API_Testing_Guide_v3.md for detailed test cases and curl examples.

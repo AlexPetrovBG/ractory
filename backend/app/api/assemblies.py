@@ -1,6 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +12,7 @@ from app.models.enums import UserRole
 from app.core.tenant_utils import add_tenant_filter, verify_tenant_access, validate_company_access
 from app.models.project import Project
 from app.models.component import Component
+from app.services.sync_service import SyncService
 
 router = APIRouter()
 
@@ -21,10 +22,16 @@ async def list_assemblies(
     project_guid: Optional[UUID] = None,
     component_guid: Optional[UUID] = None,
     company_guid: Optional[UUID] = None,
+    include_inactive: bool = Query(False, description="Include soft-deleted assemblies"),
     session: AsyncSession = Depends(get_tenant_session),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    """List all assemblies, optionally filtered by project, component, or company."""
+    """
+    List all assemblies, optionally filtered by project, component, or company.
+    - By default, only active (not soft-deleted) assemblies are returned.
+    - Set `include_inactive=true` to include soft-deleted assemblies (where is_active is False).
+    - Each assembly includes `is_active` and `deleted_at` fields to indicate soft deletion status.
+    """
     # Validate company access if company_guid parameter is provided
     if company_guid:
         await validate_company_access(request, company_guid, current_user.tenant, current_user.role)
@@ -61,6 +68,10 @@ async def list_assemblies(
     # Add tenant filtering for assemblies themselves
     query = add_tenant_filter(query, filter_tenant_id, current_user.role)
     
+    # Add is_active filter
+    if not include_inactive:
+        query = query.where(Assembly.is_active == True)
+    
     # Execute query
     result = await session.execute(query)
     assemblies = result.scalars().all()
@@ -71,6 +82,7 @@ async def list_assemblies(
 @router.get("/{assembly_guid}", response_model=AssemblyDetail)
 async def get_assembly(
     assembly_guid: UUID,
+    include_inactive: bool = Query(False, description="Include soft-deleted assembly"),
     session: AsyncSession = Depends(get_tenant_session),
     current_user: CurrentUser = Depends(get_current_user)
 ):
@@ -81,6 +93,10 @@ async def get_assembly(
     # Add explicit tenant filtering as defense-in-depth
     stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
     
+    # PATCH: Only filter for active if include_inactive is False
+    if not include_inactive:
+        stmt = stmt.where(Assembly.is_active == True)
+    
     # Execute query
     result = await session.execute(stmt)
     assembly = result.scalar_one_or_none()
@@ -88,25 +104,75 @@ async def get_assembly(
     if not assembly:
         raise HTTPException(status_code=404, detail="Assembly not found")
 
-    # ADD THIS: Explicit company check for non-SystemAdmins
     if current_user.role != UserRole.SYSTEM_ADMIN and str(assembly.company_guid) != str(current_user.tenant):
-        # This case should ideally not be hit if RLS and add_tenant_filter work,
-        # but it's a strong safeguard.
         raise HTTPException(status_code=403, detail="Access to this assembly is forbidden.")
-    # END ADD
     
-    # Get piece count
-    piece_count = 0  # Replace with actual count logic
-    
-    # Create a dict with assembly attributes
+    piece_count = 0
+    # Build response dict explicitly to avoid getattr/annotation issues
     assembly_data = {
-        key: getattr(assembly, key) 
-        for key in AssemblyDetail.__annotations__.keys() 
-        if hasattr(assembly, key)
+        "guid": assembly.guid,
+        "project_guid": assembly.project_guid,
+        "component_guid": assembly.component_guid,
+        "trolley_cell": assembly.trolley_cell,
+        "trolley": assembly.trolley,
+        "cell_number": assembly.cell_number,
+        "company_guid": assembly.company_guid,
+        "created_at": assembly.created_at,
+        "updated_at": getattr(assembly, "updated_at", None),
+        "is_active": assembly.is_active,
+        "deleted_at": assembly.deleted_at,
+        "piece_count": piece_count,
+        # Add any other required fields here
     }
     
-    # Add the count field
-    assembly_data["piece_count"] = piece_count
-    
-    # Use model_validate
-    return AssemblyDetail.model_validate(assembly_data) 
+    # Check for missing required (non-Optional) fields
+    required_fields = [
+        "guid", "project_guid", "component_guid", "company_guid", "created_at"
+    ]
+    missing = [f for f in required_fields if assembly_data.get(f) is None]
+    if missing:
+        raise HTTPException(status_code=500, detail=f"Assembly missing required fields: {missing}")
+
+    return AssemblyDetail.model_validate(assembly_data)
+
+@router.delete("/{assembly_guid}", status_code=204)
+async def soft_delete_assembly(
+    assembly_guid: UUID,
+    session: AsyncSession = Depends(get_tenant_session),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """
+    Soft delete an assembly by GUID.
+    - Sets `is_active` to False and `deleted_at` to the current timestamp.
+    - Cascades soft delete to all active children (pieces, articles).
+    - Returns 204 No Content on success.
+    """
+    stmt = select(Assembly).where(Assembly.guid == assembly_guid)
+    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    result = await session.execute(stmt)
+    assembly = result.scalar_one_or_none()
+    if not assembly:
+        raise HTTPException(status_code=404, detail="Assembly not found or forbidden")
+    await SyncService.cascade_soft_delete('assembly', assembly_guid, session)
+    return None 
+
+@router.post("/{assembly_guid}/restore", status_code=204)
+async def restore_assembly(
+    assembly_guid: UUID,
+    session: AsyncSession = Depends(get_tenant_session),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """
+    Restore a soft-deleted assembly by GUID.
+    - Sets `is_active` to True and `deleted_at` to NULL for the assembly.
+    - Restores only children with `deleted_at` matching the parent's original `deleted_at`.
+    - Returns 204 No Content on success.
+    """
+    stmt = select(Assembly).where(Assembly.guid == assembly_guid)
+    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    result = await session.execute(stmt)
+    assembly = result.scalar_one_or_none()
+    if not assembly:
+        raise HTTPException(status_code=404, detail="Assembly not found or forbidden")
+    await SyncService.cascade_restore('assembly', assembly_guid, session)
+    return None 

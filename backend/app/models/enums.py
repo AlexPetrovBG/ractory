@@ -39,4 +39,6 @@ class WorkflowActionType(str, Enum):
     WorkstationLogout = "workstation_logout"
     ErrorReport = "error_report"
     MaintenanceRequest = "maintenance_request"
-    SystemEvent = "system_event" 
+    SystemEvent = "system_event"
+    SoftDelete = "soft_delete"
+    Restore = "restore" 

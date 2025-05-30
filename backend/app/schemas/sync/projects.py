@@ -10,6 +10,8 @@ class ProjectBase(BaseModel):
     due_date: Optional[datetime] = None
     in_production: bool = False
     company_name: Optional[str] = None
+    is_active: bool = True
+    deleted_at: Optional[datetime] = None
 
 class ProjectCreate(ProjectBase):
     """Schema for creating a Project."""
@@ -27,6 +29,8 @@ class ProjectResponse(ProjectBase):
     company_guid: uuid.UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
+    is_active: bool = True
+    deleted_at: Optional[datetime] = None
 
     model_config = {
         "from_attributes": True

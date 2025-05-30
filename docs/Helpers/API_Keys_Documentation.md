@@ -259,3 +259,19 @@ Planned improvements to the API key system:
    - Bulk operations
    - Key expiration
    - Automated cleanup
+
+## Soft Delete & Restore Permissions
+
+### Roles Allowed
+- **SystemAdmin**: Can soft delete and restore any entity in any company
+- **CompanyAdmin**: Can soft delete and restore entities within their own company
+- **ProjectManager, Operator, Integration**: Cannot soft delete or restore entities
+
+### API Key Scopes
+- API keys **cannot** be used for soft delete or restore endpoints. These operations require JWT authentication with the appropriate role (SystemAdmin or CompanyAdmin).
+
+### Endpoints Requiring Permissions
+- `DELETE /api/v1/{entity}/{guid}` (soft delete)
+- `POST /api/v1/{entity}/{guid}/restore` (restore)
+
+**Note:** Attempting to access these endpoints without the required role or with an API key will result in a 403 Forbidden error.

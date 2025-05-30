@@ -13,6 +13,7 @@ from app.core.tenant_utils import add_tenant_filter, verify_tenant_access, valid
 from app.models.project import Project
 from app.models.component import Component
 from app.models.assembly import Assembly
+from app.services.sync_service import SyncService
 
 router = APIRouter()
 
@@ -23,6 +24,7 @@ async def list_pieces(
     component_guid: Optional[UUID] = None,
     assembly_guid: Optional[UUID] = None,
     company_guid: Optional[UUID] = None,
+    include_inactive: bool = Query(False, description="Include soft-deleted pieces"),
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_tenant_session),
@@ -30,7 +32,9 @@ async def list_pieces(
 ):
     """
     List pieces, optionally filtered by project, component, assembly, or company.
-    Supports pagination.
+    - By default, only active (not soft-deleted) pieces are returned.
+    - Set `include_inactive=true` to include soft-deleted pieces (where is_active is False).
+    - Each piece includes `is_active` and `deleted_at` fields to indicate soft deletion status.
     """
     # Validate company access if company_guid parameter is provided
     if company_guid:
@@ -83,6 +87,8 @@ async def list_pieces(
     query = add_tenant_filter(query, filter_tenant_id, current_user.role)
     
     # Add pagination
+    if not include_inactive:
+        query = query.where(Piece.is_active == True)
     query = query.limit(limit).offset(offset)
     
     # Execute query
@@ -95,6 +101,7 @@ async def list_pieces(
 @router.get("/{piece_guid}", response_model=PieceDetail)
 async def get_piece(
     piece_guid: UUID,
+    include_inactive: bool = Query(False, description="Include soft-deleted piece"),
     session: AsyncSession = Depends(get_tenant_session),
     current_user: CurrentUser = Depends(get_current_user)
 ):
@@ -105,6 +112,10 @@ async def get_piece(
     # Add explicit tenant filtering as defense-in-depth
     stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
     
+    # PATCH: Only filter for active if include_inactive is False
+    if not include_inactive:
+        stmt = stmt.where(Piece.is_active == True)
+    
     # Execute query
     result = await session.execute(stmt)
     piece = result.scalar_one_or_none()
@@ -112,12 +123,80 @@ async def get_piece(
     if not piece:
         raise HTTPException(status_code=404, detail="Piece not found")
 
-    # ADD THIS: Explicit company check for non-SystemAdmins
     if current_user.role != UserRole.SYSTEM_ADMIN and str(piece.company_guid) != str(current_user.tenant):
-        # This case should ideally not be hit if RLS and add_tenant_filter work,
-        # but it's a strong safeguard.
         raise HTTPException(status_code=403, detail="Access to this piece is forbidden.")
-    # END ADD
     
-    # Use model_validate
-    return PieceDetail.model_validate(piece) 
+    # Build response dict explicitly to avoid getattr/annotation issues
+    piece_data = {
+        "guid": piece.guid,
+        "piece_id": piece.piece_id,
+        "project_guid": piece.project_guid,
+        "component_guid": piece.component_guid,
+        "assembly_guid": piece.assembly_guid,
+        "barcode": piece.barcode,
+        "outer_length": piece.outer_length,
+        "angle_left": piece.angle_left,
+        "angle_right": piece.angle_right,
+        "company_guid": piece.company_guid,
+        "created_at": piece.created_at,
+        "updated_at": getattr(piece, "updated_at", None),
+        "is_active": piece.is_active,
+        "deleted_at": piece.deleted_at,
+        # Add all other optional fields as needed
+    }
+    # Add all other PieceDetail fields if present
+    for key in PieceDetail.__annotations__.keys():
+        if key not in piece_data:
+            piece_data[key] = getattr(piece, key, None)
+    
+    # Check for missing required (non-Optional) fields
+    required_fields = [
+        "guid", "piece_id", "project_guid", "component_guid", "company_guid", "created_at"
+    ]
+    missing = [f for f in required_fields if piece_data.get(f) is None]
+    if missing:
+        raise HTTPException(status_code=500, detail=f"Piece missing required fields: {missing}")
+
+    return PieceDetail.model_validate(piece_data)
+
+@router.delete("/{piece_guid}", status_code=204)
+async def soft_delete_piece(
+    piece_guid: UUID,
+    session: AsyncSession = Depends(get_tenant_session),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """
+    Soft delete a piece by GUID.
+    - Sets `is_active` to False and `deleted_at` to the current timestamp.
+    - Returns 204 No Content on success.
+    - Cascades soft delete to all active children (if any).
+    """
+    stmt = select(Piece).where(Piece.guid == piece_guid)
+    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    result = await session.execute(stmt)
+    piece = result.scalar_one_or_none()
+    if not piece:
+        raise HTTPException(status_code=404, detail="Piece not found or forbidden")
+    await SyncService.cascade_soft_delete('piece', piece_guid, session)
+    return None
+
+@router.post("/{piece_guid}/restore", status_code=204)
+async def restore_piece(
+    piece_guid: UUID,
+    session: AsyncSession = Depends(get_tenant_session),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """
+    Restore a soft-deleted piece by GUID.
+    - Sets `is_active` to True and `deleted_at` to NULL for the piece.
+    - Returns 204 No Content on success.
+    - Restores only children with `deleted_at` matching the parent's original `deleted_at` (if any).
+    """
+    stmt = select(Piece).where(Piece.guid == piece_guid)
+    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    result = await session.execute(stmt)
+    piece = result.scalar_one_or_none()
+    if not piece:
+        raise HTTPException(status_code=404, detail="Piece not found or forbidden")
+    await SyncService.cascade_restore('piece', piece_guid, session)
+    return None 

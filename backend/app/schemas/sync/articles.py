@@ -9,6 +9,8 @@ class ArticleBase(BaseModel):
     project_guid: uuid.UUID
     component_guid: uuid.UUID
     designation: Optional[str] = None
+    is_active: bool = True
+    deleted_at: Optional[datetime] = None
     
 class ArticleCreate(ArticleBase):
     """Schema for creating an Article."""
@@ -43,6 +45,8 @@ class ArticleResponse(ArticleBase):
     guid: uuid.UUID
     company_guid: uuid.UUID
     created_at: datetime
+    is_active: bool = True
+    deleted_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -68,4 +72,6 @@ class ArticleDetail(ArticleResponse):
     angle2: Optional[float] = None
     unit_weight: Optional[float] = None
     bar_length: Optional[float] = None
-    updated_at: Optional[datetime] = None 
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+    deleted_at: Optional[datetime] = None 

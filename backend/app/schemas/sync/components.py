@@ -9,6 +9,8 @@ class ComponentBase(BaseModel):
     designation: Optional[str] = None
     project_guid: uuid.UUID
     quantity: int = 1
+    is_active: bool = True
+    deleted_at: Optional[datetime] = None
     
 class ComponentCreate(ComponentBase):
     """Schema for creating a Component."""
@@ -25,6 +27,8 @@ class ComponentResponse(ComponentBase):
     guid: uuid.UUID
     company_guid: uuid.UUID
     created_at: datetime
+    is_active: bool = True
+    deleted_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

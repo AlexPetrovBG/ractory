@@ -1,12 +1,13 @@
-from sqlalchemy import Column, String, ForeignKey, Enum
+from sqlalchemy import Column, String, ForeignKey, Enum, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
+from sqlalchemy.sql import func
 
-from app.models.base import Base, TimestampMixin
+from app.models.base import Base
 from app.models.enums import WorkflowActionType
 
-class Workflow(Base, TimestampMixin):
+class Workflow(Base):
     __tablename__ = "workflow"
 
     guid = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -19,6 +20,8 @@ class Workflow(Base, TimestampMixin):
     user_name = Column(String, nullable=True)
     action_type = Column(Enum(WorkflowActionType), nullable=False)
     action_value = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     company = relationship("Company", back_populates="workflows")

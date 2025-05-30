@@ -56,6 +56,7 @@ The tests should be executed in the following order to ensure proper dependency 
 7. Data Synchronization Tests
 8. Multi-Tenant Isolation Tests
 9. Error Handling Tests
+10. Soft Delete, Cascade, Restore, and Reactivation Tests
 
 ## 1. Health Check Tests
 
@@ -1009,4 +1010,78 @@ All extended user field tests have been completed successfully:
 - Confirming updated_at timestamp functionality
 
 Additional improvements could be made to test field validation rules, length limits, and format validation.
+
+## 10. Soft Delete, Cascade, Restore, and Reactivation Tests
+
+### 10.1 Soft Delete via REST Endpoint
+
+#### Example: Soft delete a project
+```bash
+curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/projects/{project_guid}
+```
+- **Expected:** 204 No Content. Project and all children are soft deleted (is_active: false, deleted_at set).
+
+#### Example: Soft delete a component
+```bash
+curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/components/{component_guid}
+```
+- **Expected:** 204 No Content. Component and all children are soft deleted.
+
+### 10.2 Soft Delete via Sync Endpoint
+
+#### Example: Sync omitting a child (should soft delete missing children)
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     -d '{"components": [{"guid": "...", "code": "...", ...}]}' \
+     http://localhost:8000/api/v1/sync/components
+```
+- **Expected:** Children not present in payload are soft deleted (is_active: false, deleted_at set).
+
+### 10.3 Cascade Soft Delete
+- Soft deleting a parent (project/component/assembly) cascades to all active children recursively.
+- All cascaded entities have the same deleted_at timestamp.
+
+### 10.4 Selective Restore
+
+#### Example: Restore a project
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/projects/{project_guid}/restore
+```
+- **Expected:** Project and only children with matching deleted_at are restored (is_active: true, deleted_at: null).
+
+### 10.5 Reactivation via Sync
+
+#### Example: Reactivate a soft-deleted component via sync
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     -d '{"components": [{"guid": "...", "code": "UPDATED", ...}]}' \
+     http://localhost:8000/api/v1/sync/components
+```
+- **Expected:** Soft-deleted component is reactivated and updated (is_active: true, deleted_at: null).
+
+### 10.6 GET with/without Inactive
+
+#### Example: Get only active components (default)
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/components
+```
+- **Expected:** Only active components returned.
+
+#### Example: Get all components including soft-deleted
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8000/api/v1/components?include_inactive=true
+```
+- **Expected:** Both active and soft-deleted components returned.
+
+### 10.7 Edge Cases
+- Multiple generations of soft-deleted children (deep cascade)
+- Partial soft delete and selective restoration
+- Sync reactivation edge cases
+
+**See `src/ractory/backend/test_edge_cases.py` for automated test coverage of all above scenarios.**
 

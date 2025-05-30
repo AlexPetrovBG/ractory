@@ -10,6 +10,8 @@ class AssemblyBase(BaseModel):
     trolley_cell: Optional[str] = None
     trolley: Optional[str] = None
     cell_number: Optional[int] = None
+    is_active: bool = True
+    deleted_at: Optional[datetime] = None
     
 class AssemblyCreate(AssemblyBase):
     """Schema for creating an Assembly."""
@@ -26,6 +28,8 @@ class AssemblyResponse(AssemblyBase):
     guid: uuid.UUID
     company_guid: uuid.UUID
     created_at: datetime
+    is_active: bool = True
+    deleted_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
