@@ -28,14 +28,14 @@ cd ractory
 docker compose --profile dev up -d
 
 # API runs on localhost:8000
-# Admin UI on localhost:5173
-# Operator UI on localhost:5174
+# Database on localhost:5434
+# Admin UI on localhost:5173 (when implemented)
+# Operator UI on localhost:5174 (when implemented)
 ```
 
 ## Environments
 
 - **dev** - Live code reload, mounts source for immediate changes
-- **staging** - Built images, mimics production but on alternate ports
 - **prod** - Production environment with TLS, proper DNS, and stability optimizations
 
 ## Documentation

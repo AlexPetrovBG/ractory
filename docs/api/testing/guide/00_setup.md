@@ -5,14 +5,43 @@
 **Base URL:** `http://localhost:8000` (or your configured development URL)
 **Default Test Company GUID:** (Obtain after creating a test company or use one from your seed data)
 
-### Database Connection Details (Example for Development)
-```bash
-Host: localhost
-Port: 5434 # Or your dev DB port
-Database: rafactory_dev
-User: rafactory_rw
-Password: R4fDBP4ssw0rd9X
-```
+### Database Connection Details
+
+You can connect to the PostgreSQL database using any compatible GUI tool (like DBeaver, DataGrip, etc.). The key is understanding Docker's port mapping. The `docker-compose.yml` files map a port on the host machine (e.g., `5434`) to the PostgreSQL container's internal port (`5432`).
+
+#### Scenario A: Direct Connection (Docker is on your local machine)
+
+If you are running the Docker environment on your local computer, you can connect directly using the settings below.
+
+- **Host**: `localhost` or `127.0.0.1`
+- **Port**: `5434` (for `dev`), `5432` (for `prod`), `5436` (for `test`)
+- **Database**: `rafactory_dev`, `rafactory`, or `rafactory_test`
+- **User**: `rafactory_rw`
+- **Password**: The value of `DB_PASSWORD` in the corresponding `.env` file.
+
+#### Scenario B: Remote Connection (Docker is on a server)
+
+If you are connecting from your local machine to a Docker environment running on a remote server (e.g., `87.246.26.4`), you **must** use an SSH Tunnel.
+
+**DBeaver SSH Tunnel Setup:**
+1. In DBeaver's connection settings, go to the **SSH** tab.
+2. Check **Use SSH Tunnel**.
+3. **Host/IP**: Enter your remote server's IP (e.g., `87.246.26.4`).
+4. **User Name**: Your SSH username for the server (e.g., `alex`).
+5. **Authentication Method**: Choose Password or Public Key.
+
+**DBeaver Main Connection Settings (with SSH Tunnel active):**
+- **Host**: `localhost` (This is crucial - it refers to `localhost` *on the remote server*).
+- **Port**: The port as defined in the `docker-compose.yml` file on the server.
+  - **Dev DB Port**: `5434`
+  - **Prod DB Port**: `5432`
+  - **Test DB Port**: `5436`
+- **Database**: The name of the database (`rafactory_dev`, `rafactory`, or `rafactory_test`).
+- **User**: `rafactory_rw`
+- **Password**: The value of `DB_PASSWORD` from the corresponding `.env` file *on the server*.
+
+**Important Note on Port Conflicts:**
+You cannot run multiple environments at the same time if they are configured to use the same host port. If you have connection issues, ensure only the environment you are trying to connect to is running, or assign them unique ports in their `docker-compose.yml` files.
 
 ### Test Users
 Ensure you have test users with different roles. The password for seeded users is typically `password`.

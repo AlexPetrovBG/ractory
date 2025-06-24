@@ -33,26 +33,7 @@ api_router.include_router(assemblies_router.router, prefix="/assemblies", tags=[
 api_router.include_router(pieces_router.router, prefix="/pieces", tags=["pieces"])
 api_router.include_router(articles_router.router, prefix="/articles", tags=["articles"])
 
-# Emergency mock auth endpoint for testing without DB
-@api_router.post("/mock-auth", response_model=TokenResponse)
-async def mock_auth(login_data: LoginRequest):
-    """
-    Mock auth endpoint for testing without database.
-    For development/testing purposes only.
-    """
-    if login_data.email == "a.petrov@delice.bg" and login_data.password == "password":
-        return {
-            "access_token": "mock_access_token",
-            "refresh_token": "mock_refresh_token",
-            "role": "CompanyAdmin",
-            "expires_in": 900,
-        }
-    return {
-        "access_token": "",
-        "refresh_token": "",
-        "role": "Guest",
-        "expires_in": 0,
-    }
+# Mock auth endpoint removed - use proper authentication endpoints
 
 # Add user and workstation routers
 api_router.include_router(companies_router.router)

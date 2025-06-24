@@ -48,15 +48,18 @@ def test_db_connection(env="dev"):
     # Set connection parameters based on environment
     if env == "prod":
         # Based on production docker-compose.yml
-        DB_HOST = os.getenv("PROD_DB_HOST", "172.19.0.2")  # The IP address used in prod
-        DB_PORT = os.getenv("PROD_DB_PORT", "5432")
-        DB_USER = os.getenv("PROD_DB_USER", "rafactory_rw")
-        DB_PASS = os.getenv("PROD_DB_PASS", "StrongP@ss3.14")
-        
+        DB_HOST = os.getenv("PROD_DB_HOST")  # The IP address used in prod
+        DB_PORT = os.getenv("PROD_DB_PORT")
+        DB_NAME = os.getenv("PROD_DB_NAME")
+        DB_USER = os.getenv("PROD_DB_USER")
+        DB_PASS = os.getenv("PROD_DB_PASS")
+        if not DB_PASS:
+            raise RuntimeError("PROD_DB_PASS environment variable must be set!")
         print(f"Testing PROD database connection...")
         print(f"Connection parameters:")
         print(f"  Host: {DB_HOST}")
         print(f"  Port: {DB_PORT}")
+        print(f"  Database: {DB_NAME}")
         print(f"  User: {DB_USER}")
         
         # Try both possible database names
@@ -82,30 +85,15 @@ def test_db_connection(env="dev"):
             print(f"Could not list databases: {str(e)}")
         
         return False
-    elif env == "test":
-        # Test environment parameters
-        DB_HOST = os.getenv("TEST_DB_HOST", "db_test")  # The container name in docker-compose
-        DB_PORT = os.getenv("TEST_DB_PORT", "5432")  # Default PostgreSQL port inside container
-        DB_NAME = os.getenv("TEST_DB_NAME", "rafactory_test")
-        DB_USER = os.getenv("TEST_DB_USER", "rafactory_rw")
-        DB_PASS = os.getenv("TEST_DB_PASS", "R4fDBP4ssw0rd9X")  # From docker-compose.yml
-        
-        print(f"Testing TEST database connection...")
-        print(f"Connection parameters:")
-        print(f"  Host: {DB_HOST}")
-        print(f"  Port: {DB_PORT}")
-        print(f"  Database: {DB_NAME}")
-        print(f"  User: {DB_USER}")
-        
-        return try_connection(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS)
     else:
         # Default to dev environment
-        DB_HOST = os.getenv("DB_HOST", "localhost") 
-        DB_PORT = os.getenv("DB_PORT", "5434")
-        DB_NAME = os.getenv("DB_NAME", "rafactory_dev")
-        DB_USER = os.getenv("DB_USER", "rafactory_rw")
-        DB_PASS = os.getenv("DB_PASS", "R4fDBP4ssw0rd9X")
-        
+        DB_HOST = os.getenv("DEV_DB_HOST") 
+        DB_PORT = os.getenv("DEV_DB_PORT")
+        DB_NAME = os.getenv("DEV_DB_NAME")
+        DB_USER = os.getenv("DEV_DB_USER")
+        DB_PASS = os.getenv("DEV_DB_PASS")
+        if not DB_PASS:
+            raise RuntimeError("DEV_DB_PASS environment variable must be set!")
         print(f"Testing DEV database connection...")
         print(f"Connection parameters:")
         print(f"  Host: {DB_HOST}")
@@ -117,7 +105,7 @@ def test_db_connection(env="dev"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test database connection")
-    parser.add_argument("--env", choices=["dev", "prod", "test"], default="dev", help="Environment to test (dev, prod, or test)")
+    parser.add_argument("--env", choices=["dev", "prod"], default="dev", help="Environment to test (dev or prod)")
     args = parser.parse_args()
     
     test_db_connection(args.env) 

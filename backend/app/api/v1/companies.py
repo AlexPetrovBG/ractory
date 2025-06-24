@@ -12,7 +12,7 @@ from app.models.enums import UserRole
 router = APIRouter(
     prefix="/companies",
     tags=["companies"],
-    dependencies=[Depends(require_roles(UserRole.SYSTEM_ADMIN))] # Temporarily commented out for testing
+    dependencies=[Depends(require_roles(UserRole.SYSTEM_ADMIN))]
 )
 
 @router.post("", response_model=CompanyRead, status_code=status.HTTP_201_CREATED)
