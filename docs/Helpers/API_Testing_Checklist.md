@@ -1,8 +1,8 @@
 ## Detailed Test Execution Checklist
 
-### 1. Environment Setup Tests
+### 1. Development Environment Setup Tests
 [X] Development environment started successfully
-[X] Database connection verified
+[X] Database connection verified  
 [X] Initial SystemAdmin token obtained
 
 ### 2. Health Check Tests
@@ -350,7 +350,7 @@
 
 #### 11.4 Automated Isolation Tests
 [X] Install required dependencies (aiohttp)
-[X] Run isolation_test.py script with proper virtual environment activation
+[X] Run isolation_test.py script with proper virtual environment activation (dev environment only)
 [X] Run test_multi_tenant_isolation.py comprehensive test
 [X] Document test results including pass/fail statistics
 [X] Identify and categorize isolation issues by severity
