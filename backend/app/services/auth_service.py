@@ -7,6 +7,7 @@ from app.models.user import User  # Updated import path for User model
 from app.models.workstation import Workstation  # Added import for Workstation model
 from app.utils.security import verify_password, create_token
 from app.models.enums import UserRole
+import traceback
 
 class AuthService:
     @staticmethod
@@ -37,7 +38,16 @@ class AuthService:
         print(f"DEBUG: Found user {user.email}, with hash: {user.pwd_hash}")
         print(f"DEBUG: Verifying password for {user.email}...")
         
-        if not verify_password(password, user.pwd_hash):
+        try:
+            password_ok = verify_password(password, user.pwd_hash)
+        except Exception as e:
+            print("CRITICAL: Exception during verify_password!")
+            print(f"Exception Type: {type(e)}")
+            print(f"Exception Args: {e.args}")
+            traceback.print_exc()
+            return None
+
+        if not password_ok:
             print(f"DEBUG: Password verification failed for {user.email}")
             return None
             

@@ -14,8 +14,8 @@ You can connect to the PostgreSQL database using any compatible GUI tool (like D
 If you are running the Docker environment on your local computer, you can connect directly using the settings below.
 
 - **Host**: `localhost` or `127.0.0.1`
-- **Port**: `5434` (for `dev`), `5432` (for `prod`), `5436` (for `test`)
-- **Database**: `rafactory_dev`, `rafactory`, or `rafactory_test`
+- **Port**: `5434` (for `dev`), `5432` (for `prod`)
+- **Database**: `rafactory_dev`, `rafactory`
 - **User**: `rafactory_rw`
 - **Password**: The value of `DB_PASSWORD` in the corresponding `.env` file.
 
@@ -35,8 +35,7 @@ If you are connecting from your local machine to a Docker environment running on
 - **Port**: The port as defined in the `docker-compose.yml` file on the server.
   - **Dev DB Port**: `5434`
   - **Prod DB Port**: `5432`
-  - **Test DB Port**: `5436`
-- **Database**: The name of the database (`rafactory_dev`, `rafactory`, or `rafactory_test`).
+- **Database**: The name of the database (`rafactory_dev`, `rafactory`).
 - **User**: `rafactory_rw`
 - **Password**: The value of `DB_PASSWORD` from the corresponding `.env` file *on the server*.
 
@@ -44,30 +43,13 @@ If you are connecting from your local machine to a Docker environment running on
 You cannot run multiple environments at the same time if they are configured to use the same host port. If you have connection issues, ensure only the environment you are trying to connect to is running, or assign them unique ports in their `docker-compose.yml` files.
 
 ### Test Users
-Ensure you have test users with different roles. The password for seeded users is typically `password`.
 
-**Example SystemAdmin:**
--   Email: `a.petrov@delice.bg`
--   GUID: (Refer to your database or seed data)
 
-### Initial Setup Steps
-
-1.  **Start the development environment:**
+**Obtain an initial SystemAdmin token:** This token will be used for administrative setup tasks during testing.
     ```bash
-    cd src/ractory # Or your project root
-    docker compose --profile dev up -d # Or your specific startup command
-    ```
-
-2.  **Verify services are running:**
-    ```bash
-    docker compose ps
-    ```
-
-3.  **Obtain an initial SystemAdmin token:** This token will be used for administrative setup tasks during testing.
-    ```bash
-    # Replace with your SystemAdmin credentials
-    ADMIN_EMAIL="a.petrov@delice.bg"
-    ADMIN_PASSWORD="password"
+    # Use the credentials from your admin_config.env file
+    ADMIN_EMAIL="a.petrov@delice.bg"  # From admin_config.env
+    ADMIN_PASSWORD="SecureAdminPassword123!"  # From admin_config.env
     
     ADMIN_TOKEN_RESPONSE=$(curl -X POST -H "Content-Type: application/json" \
          -d "{\"email\": \"$ADMIN_EMAIL\", \"password\": \"$ADMIN_PASSWORD\"}" \
@@ -104,3 +86,49 @@ Execute tests in a logical order to ensure dependencies are met:
 9.  Workflow Management Tests (`/workflow`)
 10. Multi-Tenant Isolation Tests
 11. Error Handling & Edge Case Tests 
+
+## IMPORTANT: Database Migration & Setup Order (Quick Start)
+
+**Before running any admin/user management scripts or API tests, you must ensure the database schema is initialized.**
+
+### 1. Build and Start Database Container
+```bash
+cd /home/alex/apps/ractory/dev
+# Build the database service with no cache to ensure a clean environment
+# (Use the correct service name 'db' as defined in docker-compose.yml)
+docker compose build --no-cache db
+# Start only the database service
+docker compose up -d db
+```
+
+### 2. Run Database Migrations (REQUIRED)
+If your API does not run Alembic migrations automatically on startup, you must run them manually:
+```bash
+# From the project root
+docker compose run --rm api alembic upgrade head
+# Or, if running locally:
+alembic upgrade head
+```
+
+### 3. Start/Restart the API Service
+```bash
+cd apps/ractory/dev
+docker compose up -d --force-recreate
+```
+
+## Common Pitfalls & Troubleshooting
+
+- **Error: `relation "companies" does not exist`**
+  - Cause: Database migrations have not been run. Run Alembic migrations before any scripts or API startup.
+- **Error: `admin_config.env not found`**
+  - Cause: Script must be run from the project root where this file exists.
+- **Error: `Invalid email or password` when testing admin login**
+  - Cause: Admin user was not created/updated. (This step is now managed outside this guide.)
+- **Docker Compose KeyError: 'ContainerConfig'**
+  - Cause: Outdated Docker Compose. Upgrade to v2+ and clean up old containers/images.
+
+## Recommended Order for Initial Testing
+1. Build and start the database container.
+2. Run database migrations.
+3. Start/restart the API container.
+4. Obtain SystemAdmin token and proceed with API tests. 

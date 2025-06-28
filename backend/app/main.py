@@ -7,16 +7,33 @@ from contextlib import asynccontextmanager
 from sqlalchemy import text, event
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
+from alembic.config import Config
+from alembic import command
 
 from app.api.v1.api import api_router as api_v1_router
 from app.schemas.auth import ErrorResponse
-from app.models.base import engine
+from app.core.database import engine, SQLALCHEMY_DATABASE_URL
 from app.version import get_version_info
 from app.core.middlewares import TenantIsolationMiddleware, register_tenant_isolation_listeners
 
 # Setup RLS policies on startup
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    print("Starting API lifespan...")
+
+    # Run Alembic migrations
+    try:
+        print("Running Alembic migrations...")
+        alembic_cfg = Config("alembic.ini")
+        # alembic.ini needs to know about the database URL
+        alembic_cfg.set_main_option("sqlalchemy.url", SQLALCHEMY_DATABASE_URL.replace('%', '%%'))
+        command.upgrade(alembic_cfg, "head")
+        print("Alembic migrations completed.")
+    except Exception as e:
+        print(f"Error running Alembic migrations: {e}")
+        # Depending on the strategy, you might want to exit if migrations fail
+        # For now, we'll log and continue.
+    
     # Register SQLAlchemy event listeners for tenant isolation
     try:
         register_tenant_isolation_listeners()

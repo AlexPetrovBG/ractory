@@ -1,8 +1,9 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import MetaData, DateTime, Column, Boolean
 from sqlalchemy.sql import func
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from datetime import datetime
-from typing import Optional
+from typing import Optional, AsyncGenerator
 
 # Create a single metadata instance
 metadata = MetaData()
@@ -28,6 +29,9 @@ class TimestampMixin:
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
 # Session dependency
-async def get_session() -> AsyncSession:
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    # Note: async_session should be defined elsewhere in your app initialization
+    # For now, we'll import it from where it's likely defined
+    from app.core.database import async_session
     async with async_session() as session:
         yield session 

@@ -3,6 +3,7 @@ from typing import Optional
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import traceback
 
 from app.schemas.auth import (
     LoginRequest, TokenResponse, RefreshRequest, QrLoginRequest, ErrorResponse
@@ -47,7 +48,10 @@ async def login(login_data: LoginRequest, session: AsyncSession = Depends(get_se
         return TokenResponse(**tokens)
     except Exception as e:
         # Log the error for debugging
-        print(f"Authentication error: {str(e)}")
+        print("CRITICAL: Exception in /login endpoint!")
+        print(f"Exception Type: {type(e)}")
+        print(f"Exception Args: {e.args}")
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"

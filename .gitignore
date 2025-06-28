@@ -132,4 +132,8 @@ docker-compose.override.yml
 
 # Logs
 logs/
-*.log 
+*.log
+
+# Admin configuration (contains sensitive credentials)
+**/admin_config.env
+admin_config.env

@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.core.security import get_current_active_user, hash_password
 from app.core.database import get_db
-from app.models import User
+from app.models import User, Company
 from app.schemas import UserCreate, UserUpdate, UserResponse
 from app.core.security import RoleChecker
 from app.utils.role_utils import can_manage_role
@@ -30,6 +30,21 @@ async def create_user(
     - CompanyAdmin can only create users with lower roles (ProjectManager, Operator)
     - Other roles cannot create users
     """
+    # DEBUG: Log the incoming company_guid and type
+    print(f"DEBUG: Attempting to create user for company_guid={user_data.company_guid} (type={type(user_data.company_guid)})")
+    print(f"DEBUG: Current user tenant: {current_user.tenant}, role: {current_user.role}")
+    print(f"DEBUG: Current user company_guid: {current_user.company_guid}")
+    # Check if company exists and is active
+    company_result = await db.execute(select(Company).filter(Company.guid == user_data.company_guid, Company.is_active == True))
+    company = company_result.scalars().first()
+    print(f"DEBUG: Company query result: {company}")
+    if not company:
+        print("DEBUG: Company not found or is deactivated, raising 404")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found or is deactivated"
+        )
+    
     # Check if email already exists
     result = await db.execute(select(User).filter(User.email == user_data.email))
     if result.scalars().first():
@@ -59,6 +74,15 @@ async def create_user(
             detail="Not authorized to create users in other companies"
         )
     
+    # Additional check: Ensure the company_guid matches tenant context for RLS compliance
+    # This prevents RLS policy violations at the database level
+    if current_user.role != "SystemAdmin" and str(user_data.company_guid) != str(current_user.tenant):
+        print(f"DEBUG: Tenant mismatch - user_data.company_guid={user_data.company_guid}, current_user.tenant={current_user.tenant}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Company GUID does not match your tenant context"
+        )
+    
     # Create user
     user = User(
         email=user_data.email,
@@ -71,12 +95,30 @@ async def create_user(
         surname=user_data.surname,
         picture_path=user_data.picture_path
     )
-    
-    # Add and commit to database
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    
+    try:
+        # Add and commit to database
+        db.add(user)
+        print(f"DEBUG: About to commit user creation for company_guid={user_data.company_guid}")
+        await db.commit()
+        await db.refresh(user)
+        print(f"DEBUG: User creation successful")
+    except Exception as e:
+        print(f"DEBUG: Exception during user creation: {e}")
+        print(f"DEBUG: Exception type: {type(e)}")
+        await db.rollback()
+        
+        # Check if this is an RLS policy violation
+        error_msg = str(e).lower()
+        if "permission denied" in error_msg or "policy" in error_msg or "tenant" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to create users in the specified company"
+            )
+        
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"User creation failed: {str(e)}"
+        )
     return user
 
 
