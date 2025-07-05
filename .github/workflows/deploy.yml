@@ -61,6 +61,9 @@ jobs:
           echo "DB did not become healthy in time."
           docker compose --profile dev logs
           exit 1
+
+      - name: Run Database Migrations
+        run: docker compose --profile dev exec api alembic -c /app/alembic.ini upgrade head
       
       - name: Test with pytest against live services
         env:
