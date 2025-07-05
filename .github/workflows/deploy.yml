@@ -66,10 +66,7 @@ jobs:
         run: docker compose --profile dev exec api alembic -c /app/alembic.ini upgrade head
       
       - name: Test with pytest against live services
-        env:
-          DEV_DB_PASS: ${{ secrets.DB_PASSWORD }}
-        run: |
-          pytest || (docker compose --profile dev logs api && exit 1)
+        run: pytest
         working-directory: ./backend
 
       - name: Stop services

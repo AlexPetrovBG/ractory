@@ -9,14 +9,18 @@ from alembic import context
 # access to the values in the .ini file in use.
 config = context.config
 
-# Construct the database URL from environment variables
-db_user = os.getenv("POSTGRES_USER", "rafactory_rw")
+# Construct the database URL from environment variables to match the application
+db_user = os.getenv("DB_USER")
 db_password = os.getenv("DB_PASSWORD")
-if not db_password:
-    raise RuntimeError("DB_PASSWORD environment variable must be set!")
-db_host = os.getenv("PGHOST", "db")
-db_name = os.getenv("POSTGRES_DB", "rafactory")
-db_url = f"postgresql://{db_user}:{db_password}@{db_host}:5432/{db_name}"
+db_host = os.getenv("DB_HOST")
+db_port = os.getenv("DB_PORT", "5432")
+db_name = os.getenv("DB_NAME")
+
+# Validate that all necessary environment variables are set
+if not all([db_user, db_password, db_host, db_name]):
+    raise RuntimeError("One or more database environment variables are not set (DB_USER, DB_PASSWORD, DB_HOST, DB_NAME)")
+
+db_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
 config.set_main_option("sqlalchemy.url", db_url)
 
