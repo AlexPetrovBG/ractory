@@ -37,7 +37,7 @@ jobs:
           echo "DEV_DB_USER=test_user" >> .env
           echo "DEV_DB_PASS=${{ secrets.DB_PASSWORD }}" >> .env
           echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
-          echo "DATABASE_URL=postgresql+asyncpg://test_user:${{ secrets.DB_PASSWORD }}@db_dev:5432/test_db" >> .env
+          echo "SQLALCHEMY_DATABASE_URL=postgresql+asyncpg://test_user:${{ secrets.DB_PASSWORD }}@db_dev:5432/test_db" >> .env
 
       - name: Start services for testing
         run: docker compose --profile dev up -d db_dev api
