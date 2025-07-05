@@ -19,6 +19,7 @@ import aiohttp
 import json
 import sys
 from typing import Dict, Any, Optional, List
+import pytest
 
 # Configuration
 BASE_URL = "http://localhost:8000"
@@ -37,8 +38,7 @@ async def login(session: aiohttp.ClientSession, credentials: Dict[str, str]) -> 
         json=credentials
     ) as response:
         if response.status != 200:
-            print(f"Login failed: {await response.text()}")
-            sys.exit(1)
+            pytest.fail(f"Login failed: {await response.text()}")
         data = await response.json()
         print(f"Successfully logged in as {credentials['email']}")
         return data
@@ -108,7 +108,7 @@ async def create_api_key(session: aiohttp.ClientSession, token: str) -> Optional
             print(f"Invalid JSON response")
             return None
 
-async def test_endpoint(
+async def check_endpoint(
     session: aiohttp.ClientSession,
     headers: Dict[str, str],
     endpoint: str,
@@ -159,7 +159,8 @@ async def test_endpoint(
         print(f"Unsupported method: {method}")
         return False
 
-async def run_tests():
+@pytest.mark.asyncio
+async def test_full_isolation_flow():
     """
     Run all isolation tests.
     
@@ -179,7 +180,7 @@ async def run_tests():
         # Get companies
         companies = await get_companies(session, system_admin_token)
         if len(companies) < 2:
-            print("ERROR: Not enough companies for isolation testing")
+            pytest.fail("ERROR: Not enough companies for isolation testing")
             return
         
         company_a = companies[0]
@@ -199,77 +200,43 @@ async def run_tests():
         
         # Create API keys
         company_a_api_key = await create_api_key(session, company_a_token)
+        assert company_a_api_key, "Failed to create API key for Company A"
+        
         company_b_api_key = await create_api_key(session, company_b_token)
+        assert company_b_api_key, "Failed to create API key for Company B"
         
-        if not company_a_api_key or not company_b_api_key:
-            print("ERROR: Failed to create API keys")
-            return
+        # --- JWT Isolation Tests ---
+        print("\n--- Testing JWT Isolation ---")
+        headers_a = {"Authorization": f"Bearer {company_a_token}"}
+        headers_b = {"Authorization": f"Bearer {company_b_token}"}
         
-        # Test JWT isolation
-        print("\n=== Testing JWT Authentication Isolation ===")
+        # Company A should access its own data
+        assert await check_endpoint(session, headers_a, f"/projects?company_guid={company_a_guid}", expected_status=200)
+        # Company A should NOT access Company B's data
+        assert await check_endpoint(session, headers_a, f"/projects?company_guid={company_b_guid}", expected_status=403)
         
-        # Company A user accessing own data (should succeed)
-        own_access = await test_endpoint(
-            session, 
-            {"Authorization": f"Bearer {company_a_token}"}, 
-            "/projects"
-        )
+        # --- API Key Isolation Tests ---
+        print("\n--- Testing API Key Isolation ---")
+        api_headers_a = {"X-API-Key": company_a_api_key}
+        api_headers_b = {"X-API-Key": company_b_api_key}
         
-        # Company A user trying to access Company B data via param (should fail)
-        cross_access_param = await test_endpoint(
-            session,
-            {"Authorization": f"Bearer {company_a_token}"},
-            f"/projects?company_guid={company_b_guid}",
-            expected_status=403
-        )
+        # API key A should access its own data
+        assert await check_endpoint(session, api_headers_a, f"/projects?company_guid={company_a_guid}", expected_status=200)
+        # API key A should NOT access Company B's data
+        assert await check_endpoint(session, api_headers_a, f"/projects?company_guid={company_b_guid}", expected_status=403)
         
-        # Test API key isolation
-        print("\n=== Testing API Key Authentication Isolation ===")
+        # --- Sync Endpoint Isolation Tests ---
+        print("\n--- Testing Sync Endpoint Isolation ---")
         
-        # Company A API key accessing own data (should succeed)
-        api_own_access = await test_endpoint(
-            session,
-            {"X-API-Key": company_a_api_key},
-            "/projects"
-        )
+        # API key A should be able to sync its own projects
+        sync_payload_a = {"projects": [{"code": "PROJ_A_SYNC", "company_guid": company_a_guid}]}
+        assert await check_endpoint(session, api_headers_a, "/sync/projects", method="POST", json_data=sync_payload_a, expected_status=200)
         
-        # Company A API key trying to access Company B data (should fail)
-        api_cross_access = await test_endpoint(
-            session,
-            {"X-API-Key": company_a_api_key},
-            f"/projects?company_guid={company_b_guid}",
-            expected_status=403
-        )
+        # API key A should NOT be able to sync projects for Company B
+        sync_payload_b = {"projects": [{"code": "PROJ_B_SYNC_FAIL", "company_guid": company_b_guid}]}
+        assert await check_endpoint(session, api_headers_a, "/sync/projects", method="POST", json_data=sync_payload_b, expected_status=403)
         
-        # Test sync endpoint isolation
-        print("\n=== Testing Sync Endpoint Isolation ===")
-        
-        # Company A API key trying to sync Company B data (should fail)
-        sync_cross_access = await test_endpoint(
-            session,
-            {"X-API-Key": company_a_api_key},
-            "/sync/projects",
-            method="POST",
-            json_data={"projects": [{"company_guid": company_b_guid, "code": "TEST"}]},
-            expected_status=403
-        )
-        
-        # Report results
-        print("\n=== Test Results ===")
-        tests = [
-            ("Company A user accessing own data", own_access),
-            ("Company A user accessing Company B data (parameter)", cross_access_param),
-            ("Company A API key accessing own data", api_own_access),
-            ("Company A API key accessing Company B data", api_cross_access),
-            ("Company A API key syncing Company B data", sync_cross_access)
-        ]
-        
-        for name, result in tests:
-            status = "✓ PASS" if result else "✗ FAIL"
-            print(f"{status} - {name}")
-        
-        success_count = sum(1 for _, result in tests if result)
-        print(f"\nPassed {success_count} of {len(tests)} tests")
+        print("\n✅ All isolation tests passed!")
 
 if __name__ == "__main__":
-    asyncio.run(run_tests()) 
+    asyncio.run(test_full_isolation_flow()) 

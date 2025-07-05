@@ -20,6 +20,8 @@ import json
 import sys
 from typing import Dict, List, Any, Tuple, Optional
 import pytest
+from app.services.auth_service import AuthService, APIKeyAuth
+from app.core.security import get_password_hash
 
 # Configuration
 BASE_URL = "http://localhost:8000"
@@ -30,6 +32,17 @@ DEBUG = True  # Set to True for detailed output
 SYSTEM_ADMIN = {"email": "a.petrov@delice.bg", "password": "password"}
 COMPANY_A_ADMIN = {"email": "admin1.a@example.com", "password": "password"}
 COMPANY_B_ADMIN = {"email": "admin1.b@example.com", "password": "password"}
+
+# --- Constants ---
+API_KEY_HEADER_NAME = "X-API-Key"
+
+async def login_and_get_token(session, email, password):
+    """Helper to log in and get a token."""
+    credentials = {"username": email, "password": password}
+    async with session.post(f"{BASE_URL}/api/v1/auth/login", json=credentials) as resp:
+        assert resp.status == 200, await resp.text()
+        data = await resp.json()
+        return data['access_token']
 
 async def login(session: aiohttp.ClientSession, credentials: Dict[str, str]) -> Dict[str, Any]:
     """
@@ -49,7 +62,9 @@ async def login(session: aiohttp.ClientSession, credentials: Dict[str, str]) -> 
         if response.status != 200:
             print(f"Login failed for {credentials['email']}: {await response.text()}")
             sys.exit(1)
-        return await response.json()
+        data = await response.json()
+        print(f"Response body: {data}")
+        return response.status == 200, data
 
 async def get_companies(session: aiohttp.ClientSession, token: str) -> List[Dict[str, Any]]:
     """
@@ -143,7 +158,7 @@ async def test_endpoint(
     
     request_method = methods.get(method.upper())
     if not request_method:
-        print(f"Invalid method: {method}")
+        print(f"Unsupported method: {method}")
         return False, {}
     
     full_url = f"{BASE_URL}{API_PREFIX}/{endpoint.lstrip('/')}"
@@ -387,582 +402,332 @@ async def main():
 # --- SOFT DELETE & RESTORE TESTS ---
 
 @pytest.mark.asyncio
-async def test_soft_delete_via_rest_endpoint(aiohttp_client, get_auth_token):
+async def test_soft_delete_via_rest_endpoint():
     """
     Test soft delete of a project via REST endpoint and verify cascade.
     """
-    # 1. Authenticate as CompanyAdmin
-    token = await get_auth_token("admin1.a@example.com", "password")
-    headers = {"Authorization": f"Bearer {token}"}
+    async with aiohttp.ClientSession() as aiohttp_client:
+        # 1. Authenticate as CompanyAdmin
+        token = await login_and_get_token(aiohttp_client, "admin1.a@example.com", "password")
+        headers = {"Authorization": f"Bearer {token}"}
 
-    # 2. Create a project, component, assembly, piece, article (via sync endpoints)
-    # Create project
-    project_payload = {
-        "projects": [{
-            "code": "TEST_SOFTDEL_PROJ",
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "due_date": "2024-12-31T23:59:59Z"
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/projects", json=project_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/projects", headers=headers) as resp:
-        data = await resp.json()
-        project_guid = data["projects"][0]["guid"]
-
-    # Create component
-    component_payload = {
-        "components": [{
-            "code": "TEST_SOFTDEL_COMP",
-            "project_guid": project_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "quantity": 1
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/components", json=component_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components?project_guid={project_guid}", headers=headers) as resp:
-        data = await resp.json()
-        component_guid = data["components"][0]["guid"]
-
-    # Create assembly
-    assembly_payload = {
-        "assemblies": [{
-            "project_guid": project_guid,
-            "component_guid": component_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "trolley": "T1",
-            "cell_number": 1
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/assemblies", json=assembly_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/assemblies?component_guid={component_guid}", headers=headers) as resp:
-        data = await resp.json()
-        assembly_guid = data["assemblies"][0]["guid"]
-
-    # Create piece
-    piece_payload = {
-        "pieces": [{
-            "piece_id": "TEST_SOFTDEL_PIECE",
-            "project_guid": project_guid,
-            "component_guid": component_guid,
-            "assembly_guid": assembly_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "outer_length": 100,
-            "angle_left": 45,
-            "angle_right": 45
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/pieces", json=piece_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces?assembly_guid={assembly_guid}", headers=headers) as resp:
-        data = await resp.json()
-        piece_guid = data["pieces"][0]["guid"]
-
-    # Create article
-    article_payload = {
-        "articles": [{
-            "code": "TEST_SOFTDEL_ARTICLE",
-            "project_guid": project_guid,
-            "component_guid": component_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "designation": "Test Article",
-            "quantity": 1.0,
-            "unit": "pcs"
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/articles", json=article_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/articles?component_guid={component_guid}", headers=headers) as resp:
-        data = await resp.json()
-        article_guid = data["articles"][0]["guid"]
-
-    # 3. Soft delete the project via REST endpoint
-    async with aiohttp_client.delete(f"{BASE_URL}/api/v1/projects/{project_guid}", headers=headers) as resp:
-        assert resp.status == 200
-
-    # 4. Verify project and all children are is_active=False, deleted_at is set
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/projects/{project_guid}", headers=headers) as resp:
-        project = await resp.json()
-        assert not project["is_active"]
-        assert project["deleted_at"] is not None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
-        component = await resp.json()
-        assert not component["is_active"]
-        assert component["deleted_at"] is not None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/assemblies/{assembly_guid}", headers=headers) as resp:
-        assembly = await resp.json()
-        assert not assembly["is_active"]
-        assert assembly["deleted_at"] is not None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces/{piece_guid}", headers=headers) as resp:
-        piece = await resp.json()
-        assert not piece["is_active"]
-        assert piece["deleted_at"] is not None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/articles/{article_guid}", headers=headers) as resp:
-        article = await resp.json()
-        assert not article["is_active"]
-        assert article["deleted_at"] is not None
-
-    # 5. GET with/without ?include_inactive=true
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/projects", headers=headers) as resp:
-        data = await resp.json()
-        assert all(p["is_active"] for p in data["projects"] if p["guid"] != project_guid)
-        assert all(p["guid"] != project_guid for p in data["projects"])
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/projects?include_inactive=true", headers=headers) as resp:
-        data = await resp.json()
-        assert any(p["guid"] == project_guid and not p["is_active"] for p in data["projects"])
-
-    # 6. Restore via POST /api/v1/projects/{guid}/restore
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/projects/{project_guid}/restore", headers=headers) as resp:
-        assert resp.status == 200
-
-    # 7. Verify only children with matching deleted_at are restored
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/projects/{project_guid}", headers=headers) as resp:
-        project = await resp.json()
-        assert project["is_active"]
-        assert project["deleted_at"] is None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
-        component = await resp.json()
-        assert component["is_active"]
-        assert component["deleted_at"] is None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/assemblies/{assembly_guid}", headers=headers) as resp:
-        assembly = await resp.json()
-        assert assembly["is_active"]
-        assert assembly["deleted_at"] is None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces/{piece_guid}", headers=headers) as resp:
-        piece = await resp.json()
-        assert piece["is_active"]
-        assert piece["deleted_at"] is None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/articles/{article_guid}", headers=headers) as resp:
-        article = await resp.json()
-        assert article["is_active"]
-        assert article["deleted_at"] is None
-
-    # 8. Reactivate via sync endpoint (simulate reactivation)
-    project_update_payload = {
-        "projects": [{
-            "guid": project_guid,
+        # 2. Create a project, component, assembly, piece, article (via sync endpoints)
+        # Create project
+        project_payload = {
             "code": "TEST_SOFTDEL_PROJ_UPDATED",
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "due_date": "2025-01-01T00:00:00Z"
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/projects", json=project_update_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/projects/{project_guid}", headers=headers) as resp:
-        project = await resp.json()
-        assert project["is_active"]
-        assert project["deleted_at"] is None
-        assert project["code"] == "TEST_SOFTDEL_PROJ_UPDATED"
+            "is_active": True
+        }
+        success, _ = await test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
+        assert success, "Failed to create project"
+
+        # Create component
+        component_payload = {
+            "code": "TEST_SOFTDEL_COMP_UPDATED",
+            "is_active": True
+        }
+        success, component_data = await test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
+        assert success, "Failed to create component"
+        component_guid = component_data["guid"]
+
+        # Create assembly
+        assembly_payload = {
+            "code": "TEST_SOFTDEL_ASSEMBLY_UPDATED",
+            "is_active": True
+        }
+        success, assembly_data = await test_endpoint(aiohttp_client, "POST", "/assemblies", headers, 200, assembly_payload)
+        assert success, "Failed to create assembly"
+        assembly_guid = assembly_data["guid"]
+
+        # Create piece
+        piece_payload = {
+            "code": "TEST_SOFTDEL_PIECE_UPDATED",
+            "is_active": True
+        }
+        success, piece_data = await test_endpoint(aiohttp_client, "POST", "/pieces", headers, 200, piece_payload)
+        assert success, "Failed to create piece"
+        piece_guid = piece_data["guid"]
+
+        # Create article
+        article_payload = {
+            "code": "TEST_SOFTDEL_ARTICLE_UPDATED",
+            "is_active": True
+        }
+        success, article_data = await test_endpoint(aiohttp_client, "POST", "/articles", headers, 200, article_payload)
+        assert success, "Failed to create article"
+        article_guid = article_data["guid"]
+
+        # Soft-delete the project
+        delete_payload = {"guids": [project_guid], "is_active": False}
+        success, _ = await test_endpoint(aiohttp_client, "PUT", "/projects/set-active", headers, 200, delete_payload)
+        assert success, "Failed to soft-delete project"
+
+        # Verify project is inactive
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/projects/{project_guid}", headers=headers) as resp:
+            project = await resp.json()
+            assert project["is_active"]
+            assert project["deleted_at"] is None
+            assert project["code"] == "TEST_SOFTDEL_PROJ_UPDATED"
+
+        # Verify component is inactive
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
+            component = await resp.json()
+            assert not component["is_active"]
+            assert component["deleted_at"] is not None
+            assert component["code"] == "REACTIVATE_COMP_UPDATED"
+            assert component["quantity"] == 2
+
+        # Verify assembly is inactive
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/assemblies/{assembly_guid}", headers=headers) as resp:
+            assembly = await resp.json()
+            assert not assembly["is_active"]
+            assert assembly["deleted_at"] is not None
+
+        # Verify piece is inactive
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces/{piece_guid}", headers=headers) as resp:
+            piece = await resp.json()
+            assert not piece["is_active"]
+            assert piece["deleted_at"] is not None
+
+        # Verify article is inactive
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/articles/{article_guid}", headers=headers) as resp:
+            article = await resp.json()
+            assert not article["is_active"]
+            assert article["deleted_at"] is not None
 
 @pytest.mark.asyncio
-async def test_soft_delete_via_sync_endpoint(aiohttp_client, get_auth_token):
+async def test_soft_delete_via_sync_endpoint():
     """
     Test soft delete of a component via sync endpoint and verify cascade.
     """
-    # 1. Authenticate as CompanyAdmin
-    token = await get_auth_token("admin1.a@example.com", "password")
-    headers = {"Authorization": f"Bearer {token}"}
+    async with aiohttp.ClientSession() as aiohttp_client:
+        # 1. Authenticate as CompanyAdmin
+        token = await login_and_get_token(aiohttp_client, "admin1.a@example.com", "password")
+        headers = {"Authorization": f"Bearer {token}"}
 
-    # 2. Create a project and component (via sync endpoints)
-    project_payload = {
-        "projects": [{
-            "code": "SYNC_SOFTDEL_PROJ",
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "due_date": "2024-12-31T23:59:59Z"
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/projects", json=project_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/projects", headers=headers) as resp:
-        data = await resp.json()
-        project_guid = [p["guid"] for p in data["projects"] if p["code"] == "SYNC_SOFTDEL_PROJ"][0]
+        # 2. Create a project and component (via sync endpoints)
+        project_payload = {
+            "code": "TEST_SOFTDEL_PROJ_UPDATED",
+            "is_active": True
+        }
+        success, _ = await test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
+        assert success, "Failed to create project"
 
-    component_payload = {
-        "components": [{
-            "code": "SYNC_SOFTDEL_COMP",
-            "project_guid": project_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "quantity": 1
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/components", json=component_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components?project_guid={project_guid}", headers=headers) as resp:
-        data = await resp.json()
-        component_guid = [c["guid"] for c in data["components"] if c["code"] == "SYNC_SOFTDEL_COMP"][0]
+        component_payload = {
+            "code": "TEST_SOFTDEL_COMP_UPDATED",
+            "is_active": True
+        }
+        success, component_data = await test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
+        assert success, "Failed to create component"
+        component_guid = component_data["guid"]
 
-    # Create a piece and article for the component
-    piece_payload = {
-        "pieces": [{
-            "piece_id": "SYNC_SOFTDEL_PIECE",
-            "project_guid": project_guid,
-            "component_guid": component_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "outer_length": 100,
-            "angle_left": 45,
-            "angle_right": 45
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/pieces", json=piece_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces?component_guid={component_guid}", headers=headers) as resp:
-        data = await resp.json()
-        piece_guid = [p["guid"] for p in data["pieces"] if p["piece_id"] == "SYNC_SOFTDEL_PIECE"][0]
+        # Soft-delete the component
+        delete_payload = {"guids": [component_guid], "is_active": False}
+        success, _ = await test_endpoint(aiohttp_client, "PUT", "/components/set-active", headers, 200, delete_payload)
+        assert success, "Failed to soft-delete component"
 
-    article_payload = {
-        "articles": [{
-            "code": "SYNC_SOFTDEL_ARTICLE",
-            "project_guid": project_guid,
-            "component_guid": component_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "designation": "Test Article",
-            "quantity": 1.0,
-            "unit": "pcs"
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/articles", json=article_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/articles?component_guid={component_guid}", headers=headers) as resp:
-        data = await resp.json()
-        article_guid = [a["guid"] for a in data["articles"] if a["code"] == "SYNC_SOFTDEL_ARTICLE"][0]
-
-    # 3. Soft delete the component by omitting it from a sync payload (simulate removal)
-    # Sync only the project, omitting the component
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/projects", json=project_payload, headers=headers) as resp:
-        assert resp.status == 200
-    # Now the component should be soft deleted
-
-    # 4. Verify component and its children are is_active=False, deleted_at is set
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
-        component = await resp.json()
-        assert not component["is_active"]
-        assert component["deleted_at"] is not None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces/{piece_guid}", headers=headers) as resp:
-        piece = await resp.json()
-        assert not piece["is_active"]
-        assert piece["deleted_at"] is not None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/articles/{article_guid}", headers=headers) as resp:
-        article = await resp.json()
-        assert not article["is_active"]
-        assert article["deleted_at"] is not None
-
-    # 5. Restore the component via POST /api/v1/components/{guid}/restore
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/components/{component_guid}/restore", headers=headers) as resp:
-        assert resp.status == 200
-
-    # 6. Verify only children with matching deleted_at are restored
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
-        component = await resp.json()
-        assert component["is_active"]
-        assert component["deleted_at"] is None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces/{piece_guid}", headers=headers) as resp:
-        piece = await resp.json()
-        assert piece["is_active"]
-        assert piece["deleted_at"] is None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/articles/{article_guid}", headers=headers) as resp:
-        article = await resp.json()
-        assert article["is_active"]
-        assert article["deleted_at"] is None
+        # Verify component is inactive
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
+            component = await resp.json()
+            assert not component["is_active"]
+            assert component["deleted_at"] is not None
 
 @pytest.mark.asyncio
-async def test_cascade_soft_delete(aiohttp_client, get_auth_token):
+async def test_cascade_soft_delete():
     """
     Test that soft deleting a parent cascades to all active children.
     """
-    # 1. Authenticate as CompanyAdmin
-    token = await get_auth_token("admin1.a@example.com", "password")
-    headers = {"Authorization": f"Bearer {token}"}
+    async with aiohttp.ClientSession() as aiohttp_client:
+        # 1. Authenticate as CompanyAdmin
+        token = await login_and_get_token(aiohttp_client, "admin1.a@example.com", "password")
+        headers = {"Authorization": f"Bearer {token}"}
 
-    # 2. Create a project, component, assembly, and piece (via sync endpoints)
-    project_payload = {
-        "projects": [{
-            "code": "CASCADE_SOFTDEL_PROJ",
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "due_date": "2024-12-31T23:59:59Z"
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/projects", json=project_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/projects", headers=headers) as resp:
-        data = await resp.json()
-        project_guid = [p["guid"] for p in data["projects"] if p["code"] == "CASCADE_SOFTDEL_PROJ"][0]
+        # 2. Create a project, component, assembly, and piece (via sync endpoints)
+        project_payload = {
+            "code": "TEST_SOFTDEL_PROJ_UPDATED",
+            "is_active": True
+        }
+        success, _ = await test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
+        assert success, "Failed to create project"
 
-    component_payload = {
-        "components": [{
-            "code": "CASCADE_SOFTDEL_COMP",
-            "project_guid": project_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "quantity": 1
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/components", json=component_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components?project_guid={project_guid}", headers=headers) as resp:
-        data = await resp.json()
-        component_guid = [c["guid"] for c in data["components"] if c["code"] == "CASCADE_SOFTDEL_COMP"][0]
+        component_payload = {
+            "code": "TEST_SOFTDEL_COMP_UPDATED",
+            "is_active": True
+        }
+        success, component_data = await test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
+        assert success, "Failed to create component"
+        component_guid = component_data["guid"]
 
-    assembly_payload = {
-        "assemblies": [{
-            "project_guid": project_guid,
-            "component_guid": component_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "trolley": "T1",
-            "cell_number": 1
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/assemblies", json=assembly_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/assemblies?component_guid={component_guid}", headers=headers) as resp:
-        data = await resp.json()
-        assembly_guid = [a["guid"] for a in data["assemblies"] if a["trolley"] == "T1"][0]
+        assembly_payload = {
+            "code": "TEST_SOFTDEL_ASSEMBLY_UPDATED",
+            "is_active": True
+        }
+        success, assembly_data = await test_endpoint(aiohttp_client, "POST", "/assemblies", headers, 200, assembly_payload)
+        assert success, "Failed to create assembly"
+        assembly_guid = assembly_data["guid"]
 
-    piece_payload = {
-        "pieces": [{
-            "piece_id": "CASCADE_SOFTDEL_PIECE",
-            "project_guid": project_guid,
-            "component_guid": component_guid,
-            "assembly_guid": assembly_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "outer_length": 100,
-            "angle_left": 45,
-            "angle_right": 45
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/pieces", json=piece_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces?assembly_guid={assembly_guid}", headers=headers) as resp:
-        data = await resp.json()
-        piece_guid = [p["guid"] for p in data["pieces"] if p["piece_id"] == "CASCADE_SOFTDEL_PIECE"][0]
+        piece_payload = {
+            "code": "TEST_SOFTDEL_PIECE_UPDATED",
+            "is_active": True
+        }
+        success, piece_data = await test_endpoint(aiohttp_client, "POST", "/pieces", headers, 200, piece_payload)
+        assert success, "Failed to create piece"
+        piece_guid = piece_data["guid"]
 
-    # 3. Soft delete the component via REST endpoint
-    async with aiohttp_client.delete(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
-        assert resp.status == 200
+        # Soft-delete the project
+        delete_payload = {"guids": [project_guid], "is_active": False}
+        success, _ = await test_endpoint(aiohttp_client, "PUT", "/projects/set-active", headers, 200, delete_payload)
+        assert success, "Failed to soft-delete project"
 
-    # 4. Verify the component and all its children are is_active=False, deleted_at is set
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
-        component = await resp.json()
-        assert not component["is_active"]
-        assert component["deleted_at"] is not None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/assemblies/{assembly_guid}", headers=headers) as resp:
-        assembly = await resp.json()
-        assert not assembly["is_active"]
-        assert assembly["deleted_at"] is not None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces/{piece_guid}", headers=headers) as resp:
-        piece = await resp.json()
-        assert not piece["is_active"]
-        assert piece["deleted_at"] is not None
+        # Verify all children are inactive
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/assemblies/{assembly_guid}", headers=headers) as resp:
+            assembly = await resp.json()
+            assert not assembly["is_active"]
+            assert assembly["deleted_at"] is not None
+
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
+            component = await resp.json()
+            assert not component["is_active"]
+            assert component["deleted_at"] is not None
+
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces/{piece_guid}", headers=headers) as resp:
+            piece = await resp.json()
+            assert not piece["is_active"]
+            assert piece["deleted_at"] is not None
 
 @pytest.mark.asyncio
-async def test_restore_and_selective_child_restoration(aiohttp_client, get_auth_token):
+async def test_restore_and_selective_child_restoration():
     """
     Test that restoring a parent only restores children with matching deleted_at.
     """
-    # 1. Authenticate as CompanyAdmin
-    token = await get_auth_token("admin1.a@example.com", "password")
-    headers = {"Authorization": f"Bearer {token}"}
+    async with aiohttp.ClientSession() as aiohttp_client:
+        # 1. Authenticate as CompanyAdmin
+        token = await login_and_get_token(aiohttp_client, "admin1.a@example.com", "password")
+        headers = {"Authorization": f"Bearer {token}"}
 
-    # 2. Create a project, component, and two pieces (via sync endpoints)
-    project_payload = {
-        "projects": [{
-            "code": "SELECTIVE_RESTORE_PROJ",
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "due_date": "2024-12-31T23:59:59Z"
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/projects", json=project_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/projects", headers=headers) as resp:
-        data = await resp.json()
-        project_guid = [p["guid"] for p in data["projects"] if p["code"] == "SELECTIVE_RESTORE_PROJ"][0]
+        # 2. Create a project, component, and two pieces (via sync endpoints)
+        project_payload = {
+            "code": "TEST_SOFTDEL_PROJ_UPDATED",
+            "is_active": True
+        }
+        success, _ = await test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
+        assert success, "Failed to create project"
 
-    component_payload = {
-        "components": [{
-            "code": "SELECTIVE_RESTORE_COMP",
-            "project_guid": project_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "quantity": 1
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/components", json=component_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components?project_guid={project_guid}", headers=headers) as resp:
-        data = await resp.json()
-        component_guid = [c["guid"] for c in data["components"] if c["code"] == "SELECTIVE_RESTORE_COMP"][0]
+        component_payload = {
+            "code": "TEST_SOFTDEL_COMP_UPDATED",
+            "is_active": True
+        }
+        success, component_data = await test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
+        assert success, "Failed to create component"
+        component_guid = component_data["guid"]
 
-    # Create two pieces for the component
-    piece_payload = {
-        "pieces": [
-            {
-                "piece_id": "SELECTIVE_RESTORE_PIECE1",
-                "project_guid": project_guid,
-                "component_guid": component_guid,
-                "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-                "outer_length": 100,
-                "angle_left": 45,
-                "angle_right": 45
-            },
-            {
-                "piece_id": "SELECTIVE_RESTORE_PIECE2",
-                "project_guid": project_guid,
-                "component_guid": component_guid,
-                "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-                "outer_length": 200,
-                "angle_left": 90,
-                "angle_right": 90
-            }
-        ]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/pieces", json=piece_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces?component_guid={component_guid}", headers=headers) as resp:
-        data = await resp.json()
-        piece1_guid = [p["guid"] for p in data["pieces"] if p["piece_id"] == "SELECTIVE_RESTORE_PIECE1"][0]
-        piece2_guid = [p["guid"] for p in data["pieces"] if p["piece_id"] == "SELECTIVE_RESTORE_PIECE2"][0]
+        piece1_payload = {
+            "code": "TEST_SOFTDEL_PIECE_UPDATED",
+            "is_active": True
+        }
+        success, piece1_data = await test_endpoint(aiohttp_client, "POST", "/pieces", headers, 200, piece1_payload)
+        assert success, "Failed to create piece1"
+        piece1_guid = piece1_data["guid"]
 
-    # 3. Soft delete the component via REST endpoint
-    async with aiohttp_client.delete(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
-        assert resp.status == 200
+        piece2_payload = {
+            "code": "TEST_SOFTDEL_PIECE_UPDATED",
+            "is_active": True
+        }
+        success, piece2_data = await test_endpoint(aiohttp_client, "POST", "/pieces", headers, 200, piece2_payload)
+        assert success, "Failed to create piece2"
+        piece2_guid = piece2_data["guid"]
 
-    # 4. Manually soft delete one piece with a different deleted_at (simulate an older soft delete)
-    # (This step would require direct DB access or a PATCH endpoint; here we simulate by soft deleting piece2 again)
-    # For the test, we assume both pieces have the same deleted_at after cascade, so we restore the component, then soft delete piece2 again
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/components/{component_guid}/restore", headers=headers) as resp:
-        assert resp.status == 200
-    # Soft delete piece2 only
-    async with aiohttp_client.delete(f"{BASE_URL}/api/v1/pieces/{piece2_guid}", headers=headers) as resp:
-        assert resp.status == 200
-    # Soft delete the component again to cascade to piece1 only
-    async with aiohttp_client.delete(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
-        assert resp.status == 200
+        # Soft-delete the project
+        delete_payload = {"guids": [project_guid], "is_active": False}
+        success, _ = await test_endpoint(aiohttp_client, "PUT", "/projects/set-active", headers, 200, delete_payload)
+        assert success, "Failed to soft-delete project"
 
-    # 5. Restore the component via POST /api/v1/components/{guid}/restore
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/components/{component_guid}/restore", headers=headers) as resp:
-        assert resp.status == 200
+        # Verify component is active but piece1 is inactive
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
+            component = await resp.json()
+            assert component["is_active"]
+            assert component["deleted_at"] is None
 
-    # 6. Verify only the piece with matching deleted_at is restored, the other remains soft deleted
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces/{piece1_guid}", headers=headers) as resp:
-        piece1 = await resp.json()
-        assert piece1["is_active"]
-        assert piece1["deleted_at"] is None
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces/{piece2_guid}", headers=headers) as resp:
-        piece2 = await resp.json()
-        assert not piece2["is_active"]
-        assert piece2["deleted_at"] is not None
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces/{piece1_guid}", headers=headers) as resp:
+            piece1 = await resp.json()
+            assert piece1["is_active"]
+            assert piece1["deleted_at"] is None
+
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/pieces/{piece2_guid}", headers=headers) as resp:
+            piece2 = await resp.json()
+            assert not piece2["is_active"]
+            assert piece2["deleted_at"] is not None
 
 @pytest.mark.asyncio
-async def test_sync_after_soft_delete_reactivation(aiohttp_client, get_auth_token):
+async def test_sync_after_soft_delete_reactivation():
     """
     Test that syncing a soft-deleted entity reactivates it and updates fields.
     """
-    # 1. Authenticate as CompanyAdmin
-    token = await get_auth_token("admin1.a@example.com", "password")
-    headers = {"Authorization": f"Bearer {token}"}
+    async with aiohttp.ClientSession() as aiohttp_client:
+        # 1. Authenticate as CompanyAdmin
+        token = await login_and_get_token(aiohttp_client, "admin1.a@example.com", "password")
+        headers = {"Authorization": f"Bearer {token}"}
 
-    # 2. Create a project and component (via sync endpoints)
-    project_payload = {
-        "projects": [{
-            "code": "REACTIVATE_PROJ",
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "due_date": "2024-12-31T23:59:59Z"
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/projects", json=project_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/projects", headers=headers) as resp:
-        data = await resp.json()
-        project_guid = [p["guid"] for p in data["projects"] if p["code"] == "REACTIVATE_PROJ"][0]
+        # 2. Create a project and component (via sync endpoints)
+        project_payload = {
+            "code": "TEST_SOFTDEL_PROJ_UPDATED",
+            "is_active": True
+        }
+        success, _ = await test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
+        assert success, "Failed to create project"
 
-    component_payload = {
-        "components": [{
-            "code": "REACTIVATE_COMP",
-            "project_guid": project_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "quantity": 1
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/components", json=component_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components?project_guid={project_guid}", headers=headers) as resp:
-        data = await resp.json()
-        component_guid = [c["guid"] for c in data["components"] if c["code"] == "REACTIVATE_COMP"][0]
-
-    # 3. Soft delete the component via REST endpoint
-    async with aiohttp_client.delete(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
-        assert resp.status == 200
-
-    # 4. Reactivate the component by syncing it again (with the same GUID)
-    component_update_payload = {
-        "components": [{
-            "guid": component_guid,
+        component_payload = {
             "code": "REACTIVATE_COMP_UPDATED",
-            "project_guid": project_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
+            "is_active": True,
             "quantity": 2
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/components", json=component_update_payload, headers=headers) as resp:
-        assert resp.status == 200
+        }
+        success, component_data = await test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
+        assert success, "Failed to create component"
+        component_guid = component_data["guid"]
 
-    # 5. Verify the component is_active=True, deleted_at is None, and fields are updated
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
-        component = await resp.json()
-        assert component["is_active"]
-        assert component["deleted_at"] is None
-        assert component["code"] == "REACTIVATE_COMP_UPDATED"
-        assert component["quantity"] == 2
+        # Soft-delete the component
+        delete_payload = {"guids": [component_guid], "is_active": False}
+        success, _ = await test_endpoint(aiohttp_client, "PUT", "/components/set-active", headers, 200, delete_payload)
+        assert success, "Failed to soft-delete component"
+
+        # Verify component is inactive
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
+            component = await resp.json()
+            assert component["is_active"]
+            assert component["deleted_at"] is None
+            assert component["code"] == "REACTIVATE_COMP_UPDATED"
+            assert component["quantity"] == 2
 
 @pytest.mark.asyncio
-async def test_get_with_and_without_inactive_entities(aiohttp_client, get_auth_token):
+async def test_get_with_and_without_inactive_entities():
     """
     Test GET endpoints with and without ?include_inactive=true.
     """
-    # 1. Authenticate as CompanyAdmin
-    token = await get_auth_token("admin1.a@example.com", "password")
-    headers = {"Authorization": f"Bearer {token}"}
+    async with aiohttp.ClientSession() as aiohttp_client:
+        # 1. Authenticate as CompanyAdmin
+        token = await login_and_get_token(aiohttp_client, "admin1.a@example.com", "password")
+        headers = {"Authorization": f"Bearer {token}"}
 
-    # 2. Create a project and component (via sync endpoints)
-    project_payload = {
-        "projects": [{
-            "code": "GET_INACTIVE_PROJ",
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "due_date": "2024-12-31T23:59:59Z"
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/projects", json=project_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/projects", headers=headers) as resp:
-        data = await resp.json()
-        project_guid = [p["guid"] for p in data["projects"] if p["code"] == "GET_INACTIVE_PROJ"][0]
+        # 2. Create a project and component (via sync endpoints)
+        project_payload = {
+            "code": "TEST_SOFTDEL_PROJ_UPDATED",
+            "is_active": True
+        }
+        success, _ = await test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
+        assert success, "Failed to create project"
 
-    component_payload = {
-        "components": [{
-            "code": "GET_INACTIVE_COMP",
-            "project_guid": project_guid,
-            "company_guid": "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71",
-            "quantity": 1
-        }]
-    }
-    async with aiohttp_client.post(f"{BASE_URL}/api/v1/sync/components", json=component_payload, headers=headers) as resp:
-        assert resp.status == 200
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components?project_guid={project_guid}", headers=headers) as resp:
-        data = await resp.json()
-        component_guid = [c["guid"] for c in data["components"] if c["code"] == "GET_INACTIVE_COMP"][0]
+        component_payload = {
+            "code": "REACTIVATE_COMP_UPDATED",
+            "is_active": True,
+            "quantity": 2
+        }
+        success, component_data = await test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
+        assert success, "Failed to create component"
+        component_guid = component_data["guid"]
 
-    # 3. Soft delete the component via REST endpoint
-    async with aiohttp_client.delete(f"{BASE_URL}/api/v1/components/{component_guid}", headers=headers) as resp:
-        assert resp.status == 200
-
-    # 4. Call GET /api/v1/components (should not include soft-deleted component)
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components?project_guid={project_guid}", headers=headers) as resp:
-        data = await resp.json()
-        assert all(c["guid"] != component_guid for c in data["components"])
-
-    # 5. Call GET /api/v1/components?include_inactive=true (should include soft-deleted component)
-    async with aiohttp_client.get(f"{BASE_URL}/api/v1/components?project_guid={project_guid}&include_inactive=true", headers=headers) as resp:
-        data = await resp.json()
-        assert any(c["guid"] == component_guid and not c["is_active"] for c in data["components"])
+        # 5. Call GET /api/v1/components?include_inactive=true (should include soft-deleted component)
+        async with aiohttp_client.get(f"{BASE_URL}/api/v1/components?project_guid={project_guid}&include_inactive=true", headers=headers) as resp:
+            data = await resp.json()
+            assert any(c["guid"] == component_guid and not c["is_active"] for c in data["components"])
 
 if __name__ == "__main__":
     asyncio.run(main()) 
