@@ -32,23 +32,27 @@ jobs:
         working-directory: ./backend
 
       - name: Create .env file for testing
-        run: echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" > .env
+        run: |
+          echo "DEV_DB_NAME=test_db" > .env
+          echo "DEV_DB_USER=test_user" >> .env
+          echo "DEV_DB_PASS=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
 
       - name: Start services for testing
-        run: docker compose up -d db api
+        run: docker compose --profile dev up -d db_dev api
 
       - name: Wait for database to be healthy
         run: |
           echo "Waiting for DB..."
           for i in {1..30}; do
-            if [ "$(docker compose ps db | grep -c '(healthy)')" -gt 0 ]; then
+            if [ "$(docker compose --profile dev ps db_dev | grep -c '(healthy)')" -gt 0 ]; then
               echo "DB is healthy!"
               exit 0
             fi
             sleep 2
           done
           echo "DB did not become healthy in time."
-          docker compose logs
+          docker compose --profile dev logs
           exit 1
       
       - name: Test with pytest against live services
@@ -59,7 +63,7 @@ jobs:
 
       - name: Stop services
         if: always()
-        run: docker compose down
+        run: docker compose --profile dev down
 
       - name: Test Docker Hub Login
         uses: docker/login-action@v2
