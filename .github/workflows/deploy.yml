@@ -31,11 +31,35 @@ jobs:
           ruff check . --exit-zero
         working-directory: ./backend
 
-      - name: Test with pytest
+      - name: Create .env file for testing
+        run: echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" > apps/ractory/dev/.env
+
+      - name: Start services for testing
+        run: docker compose -f apps/ractory/dev/docker-compose.yml up -d db api
+
+      - name: Wait for database to be healthy
         run: |
-          pip install pytest
-          pytest
+          echo "Waiting for DB..."
+          for i in {1..30}; do
+            if [ "$(docker compose -f apps/ractory/dev/docker-compose.yml ps db | grep -c '(healthy)')" -gt 0 ]; then
+              echo "DB is healthy!"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "DB did not become healthy in time."
+          docker compose -f apps/ractory/dev/docker-compose.yml logs
+          exit 1
+      
+      - name: Test with pytest against live services
+        env:
+          DEV_DB_PASS: ${{ secrets.DB_PASSWORD }}
+        run: pytest
         working-directory: ./backend
+
+      - name: Stop services
+        if: always()
+        run: docker compose -f apps/ractory/dev/docker-compose.yml down
 
       - name: Test Docker Hub Login
         uses: docker/login-action@v2
