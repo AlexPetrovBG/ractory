@@ -58,7 +58,8 @@ jobs:
       - name: Test with pytest against live services
         env:
           DEV_DB_PASS: ${{ secrets.DB_PASSWORD }}
-        run: pytest
+        run: |
+          pytest || (docker compose --profile dev logs api && exit 1)
         working-directory: ./backend
 
       - name: Stop services
