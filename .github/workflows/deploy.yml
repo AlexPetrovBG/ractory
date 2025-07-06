@@ -31,40 +31,28 @@ jobs:
           ruff check . --exit-zero
         working-directory: ./backend
 
+      - name: Wait for services to be healthy
+        run: sleep 15 # Simple wait for services to initialize
+
       - name: Create .env file for testing
         run: |
-          # For db_dev service
-          echo "POSTGRES_DB=test_db" > .env
-          echo "POSTGRES_USER=test_user" >> .env
-          echo "POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-          # For api service
+          echo "DB_USER=rafactory_rw" > .env
+          echo "DB_PASSWORD=2KMnijoXcxKgJ4RXi7UKj8RoZYqffblewJqRAioRcI" >> .env
           echo "DB_HOST=db_dev" >> .env
           echo "DB_PORT=5432" >> .env
-          echo "DB_NAME=test_db" >> .env
-          echo "DB_USER=test_user" >> .env
-          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          echo "DB_NAME=rafactory_dev" >> .env
+          echo "ADMIN_EMAIL=a.petrov@delice.bg" >> .env
+          echo "ADMIN_PASSWORD=password" >> .env
+          echo "ADMIN_NAME=System" >> .env
+          echo "ADMIN_SURNAME=Admin" >> .env
+        working-directory: src/ractory/backend/scripts
 
-      - name: Start services for testing
-        run: docker compose --profile dev up -d db_dev api
+      - name: Run database migrations
+        run: docker compose -f src/ractory/backend/docker-compose.yml exec api_dev alembic upgrade head
 
-      - name: Wait for database to be healthy
-        run: |
-          echo "Waiting for DB..."
-          for i in {1..30}; do
-            if [ "$(docker compose --profile dev ps db_dev | grep -c '(healthy)')" -gt 0 ]; then
-              echo "DB is healthy!"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "DB did not become healthy in time."
-          docker compose --profile dev logs
-          exit 1
+      - name: Seed database with initial admin user
+        run: docker compose -f src/ractory/backend/docker-compose.yml exec api_dev python /app/scripts/create_admin_user.py
 
-      - name: Run Database Migrations
-        run: docker compose --profile dev exec api alembic -c /app/alembic.ini upgrade head
-      
       - name: Run pytest
         id: tests
         working-directory: backend

@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from passlib.context import CryptContext
 
 # Load environment variables from .env file
-dotenv_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'apps', 'ractory', 'prod', '.env')
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
 # Database connection settings
