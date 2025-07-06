@@ -12,7 +12,7 @@ from typing import Dict, Any
 # --- Constants ---
 BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 API_PREFIX = "/api/v1"
-COMPANY_GUID = "489177f0-2f34-4396-a9a1-c34bbb61d059"  # Test Company A (admin1.a@example.com)
+COMPANY_GUID = "11111111-1111-1111-1111-111111111111"  # Test Company A (admin1.a@example.com) - predefined
 EMAIL = "admin1.a@example.com"
 PASSWORD = "password"
 

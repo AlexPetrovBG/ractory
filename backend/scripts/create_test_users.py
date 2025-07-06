@@ -23,7 +23,7 @@ DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT
 # Password hashing context
 PWD_CTX = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Test users configuration
+# Test users configuration with predefined GUIDs for predictable testing
 TEST_USERS = [
     {
         "email": "admin1.a@example.com",
@@ -33,7 +33,8 @@ TEST_USERS = [
         "surname": "CompanyA",
         "company_name": "Test Company A",
         "company_code": "TCA",
-        "company_index": 90
+        "company_index": 90,
+        "company_guid": "11111111-1111-1111-1111-111111111111"  # Predefined for Test Company A
     },
     {
         "email": "admin1.b@example.com", 
@@ -43,7 +44,8 @@ TEST_USERS = [
         "surname": "CompanyB",
         "company_name": "Test Company B",
         "company_code": "TCB",
-        "company_index": 91
+        "company_index": 91,
+        "company_guid": "22222222-2222-2222-2222-222222222222"  # Predefined for Test Company B
     }
 ]
 
@@ -76,8 +78,8 @@ async def create_test_users():
                 company_guid = result.scalar_one_or_none()
                 
                 if company_guid is None:
-                    # Create company for this user
-                    company_guid = uuid.uuid4()
+                    # Create company for this user using predefined GUID
+                    company_guid = uuid.UUID(user_config["company_guid"])
                     await session.execute(
                         text("""
                             INSERT INTO companies (guid, name, short_name, company_index, is_active) 
@@ -91,7 +93,7 @@ async def create_test_users():
                             "is_active": True
                         }
                     )
-                    print(f"Created company '{user_config['company_name']}' with GUID: {company_guid}")
+                    print(f"Created company '{user_config['company_name']}' with predefined GUID: {company_guid}")
                 else:
                     print(f"Company with index {user_config['company_index']} already exists, using existing company GUID: {company_guid}")
                 
