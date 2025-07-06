@@ -58,7 +58,16 @@ jobs:
       - name: Wait for database to be healthy
         run: |
           echo "Waiting for database to be ready..."
-          timeout 60 bash -c 'until docker compose --profile dev ps db_dev | grep -q "healthy"; do sleep 2; done'
+          echo "Checking current service status..."
+          docker compose --profile dev ps
+          echo "Checking database logs..."
+          docker compose --profile dev logs db_dev
+          echo "Waiting for database health check..."
+          timeout 90 bash -c 'until docker compose --profile dev ps db_dev | grep -q "healthy"; do 
+            echo "Database not healthy yet, current status:"
+            docker compose --profile dev ps db_dev
+            sleep 5
+          done'
           echo "Database is ready!"
 
       - name: Debug environment variables
