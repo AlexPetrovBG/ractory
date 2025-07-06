@@ -48,10 +48,10 @@ jobs:
         working-directory: backend/scripts
 
       - name: Run database migrations
-        run: docker compose -f src/ractory/backend/docker-compose.yml exec api_dev alembic upgrade head
+        run: docker compose -f backend/docker-compose.yml exec api_dev alembic upgrade head
 
       - name: Seed database with initial admin user
-        run: docker compose -f src/ractory/backend/docker-compose.yml exec api_dev python /app/scripts/create_admin_user.py
+        run: docker compose -f backend/docker-compose.yml exec api_dev python /app/scripts/create_admin_user.py
 
       - name: Run pytest
         id: tests
@@ -64,11 +64,11 @@ jobs:
 
       - name: Dump API logs on test failure
         if: steps.tests.outcome == 'failure'
-        run: docker compose --profile dev logs api
+        run: docker compose -f backend/docker-compose.yml logs api_dev
 
       - name: Stop services
         if: always()
-        run: docker compose --profile dev down
+        run: docker compose -f backend/docker-compose.yml down
 
       - name: Test Docker Hub Login
         uses: docker/login-action@v2
