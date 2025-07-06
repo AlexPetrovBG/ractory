@@ -33,7 +33,7 @@ TEST_USERS = [
         "surname": "CompanyA",
         "company_name": "Test Company A",
         "company_code": "TCA",
-        "company_index": 100
+        "company_index": 90
     },
     {
         "email": "admin1.b@example.com", 
@@ -43,7 +43,7 @@ TEST_USERS = [
         "surname": "CompanyB",
         "company_name": "Test Company B",
         "company_code": "TCB",
-        "company_index": 101
+        "company_index": 91
     }
 ]
 

@@ -34,9 +34,9 @@ SYSTEM_ADMIN = {"email": "a.petrov@delice.bg", "password": "SecureAdminPassword1
 COMPANY_A_ADMIN = {"email": "admin1.a@example.com", "password": "password"}
 COMPANY_B_ADMIN = {"email": "admin1.b@example.com", "password": "password"}
 
-# Company GUIDs from test users
-company_a_guid = "11111111-1111-1111-1111-111111111111"
-company_b_guid = "22222222-2222-2222-2222-222222222222"
+# Company GUIDs from test users (created by create_test_users.py)
+company_a_guid = "489177f0-2f34-4396-a9a1-c34bbb61d059"  # Test Company A (index 90)
+company_b_guid = "2e0a5348-3b20-456f-85c2-d04f76f2a79e"  # Test Company B (index 91)
 
 # --- Constants ---
 API_KEY_HEADER_NAME = "X-API-Key"
