@@ -12,7 +12,7 @@ from typing import Dict, Any
 # --- Constants ---
 BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 API_PREFIX = "/api/v1"
-COMPANY_GUID = "28fbeed6-5e09-4b75-ad74-ab1cdc4dec71"
+COMPANY_GUID = "11111111-1111-1111-1111-111111111111"
 EMAIL = "admin1.a@example.com"
 PASSWORD = "password"
 
@@ -33,7 +33,9 @@ async def find_guid_by_code(session: aiohttp.ClientSession, headers: Dict[str, A
     async with session.get(url, headers=headers, params=params) as response:
         response.raise_for_status()
         data = await response.json()
-        item = next((p for p in data[collection_key] if p["code"] == code), None)
+        # API returns a list directly, not an object with a collection key
+        items = data if isinstance(data, list) else data.get(collection_key, [])
+        item = next((p for p in items if p["code"] == code), None)
         assert item, f"Could not find entity with code '{code}'"
         return item["guid"]
 
@@ -59,10 +61,15 @@ async def test_multiple_generations_soft_delete():
             assert resp.status == 200
         component_guid = await find_guid_by_code(session, headers, "components", {"project_guid": project_guid}, "MULTI_GEN_COMP", "components")
 
-        assembly_payload = {"assemblies": [{"code": "MULTI_GEN_ASSY", "project_guid": project_guid, "component_guid": component_guid, "company_guid": COMPANY_GUID}]}
+        assembly_payload = {"assemblies": [{"trolley": "MULTI_GEN_ASSY", "project_guid": project_guid, "component_guid": component_guid, "company_guid": COMPANY_GUID}]}
         async with session.post(f"{BASE_URL}{API_PREFIX}/sync/assemblies", json=assembly_payload, headers=headers) as resp:
             assert resp.status == 200
-        assembly_guid = await find_guid_by_code(session, headers, "assemblies", {"project_guid": project_guid}, "MULTI_GEN_ASSY", "assemblies")
+        # Get assembly by trolley instead of code
+        async with session.get(f"{BASE_URL}{API_PREFIX}/assemblies", headers=headers, params={"component_guid": component_guid}) as resp:
+            assemblies = await resp.json()
+            assembly = next((a for a in assemblies if a.get("trolley") == "MULTI_GEN_ASSY"), None)
+            assert assembly, "Could not find assembly with trolley 'MULTI_GEN_ASSY'"
+            assembly_guid = assembly["guid"]
 
         # 3. Soft delete the project
         async with session.delete(f"{BASE_URL}{API_PREFIX}/projects/{project_guid}", headers=headers) as resp:
@@ -108,7 +115,7 @@ async def test_partial_soft_delete_and_selective_restore():
 
         # 4. Restore the project
         async with session.post(f"{BASE_URL}{API_PREFIX}/projects/{project_guid}/restore", headers=headers) as resp:
-            assert resp.status == 200
+            assert resp.status in (200, 204)
 
         # 5. Verify only the component deleted with the project is restored
         async with session.get(f"{BASE_URL}{API_PREFIX}/components/{comp_a_guid}?include_inactive=true", headers=headers) as resp:

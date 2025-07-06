@@ -39,7 +39,7 @@ jobs:
           echo "DB_PORT=5432" >> .env
           echo "DB_NAME=rafactory_dev" >> .env
           echo "ADMIN_EMAIL=a.petrov@delice.bg" >> .env
-          echo "ADMIN_PASSWORD=password" >> .env
+          echo "ADMIN_PASSWORD=SecureAdminPassword123" >> .env
           echo "ADMIN_NAME=System" >> .env
           echo "ADMIN_SURNAME=Admin" >> .env
         working-directory: backend/scripts
@@ -108,6 +108,9 @@ jobs:
 
       - name: Seed database with initial admin user
         run: docker compose --profile dev exec api python /app/scripts/create_admin_user.py
+
+      - name: Create test users for pytest
+        run: docker compose --profile dev exec api python /app/scripts/create_test_users.py
 
       - name: Run pytest
         id: tests
