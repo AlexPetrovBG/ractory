@@ -45,7 +45,7 @@ jobs:
           echo "ADMIN_PASSWORD=password" >> .env
           echo "ADMIN_NAME=System" >> .env
           echo "ADMIN_SURNAME=Admin" >> .env
-        working-directory: src/ractory/backend/scripts
+        working-directory: backend/scripts
 
       - name: Run database migrations
         run: docker compose -f src/ractory/backend/docker-compose.yml exec api_dev alembic upgrade head
