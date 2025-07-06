@@ -44,6 +44,14 @@ jobs:
           echo "ADMIN_SURNAME=Admin" >> .env
         working-directory: backend/scripts
 
+      - name: Create .env file for Docker Compose
+        run: |
+          echo "DB_USER=rafactory_rw" > .env
+          echo "DB_PASSWORD=2KMnijoXcxKgJ4RXi7UKj8RoZYqffblewJqRAioRcI" >> .env
+          echo "DB_HOST=db_dev" >> .env
+          echo "DB_PORT=5432" >> .env
+          echo "DB_NAME=rafactory_dev" >> .env
+
       - name: Start services for testing
         run: docker compose --profile dev up -d db_dev api
 
