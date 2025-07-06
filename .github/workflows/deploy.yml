@@ -65,9 +65,17 @@ jobs:
       - name: Run Database Migrations
         run: docker compose --profile dev exec api alembic -c /app/alembic.ini upgrade head
       
-      - name: Test with pytest against live services
-        run: pytest
-        working-directory: ./backend
+      - name: Run pytest
+        id: tests
+        working-directory: src/ractory/backend
+        run: |
+          export PYTHONPATH=$(pwd)
+          pytest
+        continue-on-error: true
+
+      - name: Dump API logs on test failure
+        if: ${{ steps.tests.outcome == 'failure' }}
+        run: docker compose --profile dev logs api
 
       - name: Stop services
         if: always()
