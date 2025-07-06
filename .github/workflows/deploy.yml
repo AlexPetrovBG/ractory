@@ -71,10 +71,11 @@ jobs:
         run: |
           export PYTHONPATH=$(pwd)
           pytest
-        continue-on-error: true
+        env:
+          API_BASE_URL: http://localhost:8000
 
       - name: Dump API logs on test failure
-        if: ${{ steps.tests.outcome == 'failure' }}
+        if: steps.tests.outcome == 'failure'
         run: docker compose --profile dev logs api
 
       - name: Stop services

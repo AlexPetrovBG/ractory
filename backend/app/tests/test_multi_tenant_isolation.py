@@ -18,13 +18,14 @@ import aiohttp
 import uuid
 import json
 import sys
+import os
 from typing import Dict, List, Any, Tuple, Optional
 import pytest
 from app.services.auth_service import AuthService
 from app.core.security import hash_password
 
 # Configuration
-BASE_URL = "http://localhost:8000"
+BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 API_PREFIX = "/api/v1"
 DEBUG = True  # Set to True for detailed output
 
@@ -125,7 +126,7 @@ async def create_api_key(
             print(f"API key not found in response: {data}")
             return None
 
-async def test_endpoint(
+async def helper_test_endpoint(
     session: aiohttp.ClientSession,
     method: str,
     endpoint: str,
@@ -212,29 +213,16 @@ async def run_entity_tests(
         company_b_guid: Company B GUID
         entity_type: Entity type to test (projects, components, etc.)
     """
-    # Test company A user viewing company A data (should succeed)
-    await test_endpoint(
-        session, "GET", f"/{entity_type}",
-        {"Authorization": f"Bearer {company_a_token}"},
-        200,
-        debug_msg=f"Company A user viewing own {entity_type}"
-    )
-    
-    # Test company A user viewing company B data (should fail)
-    # Try explicit filtering by company_guid
-    await test_endpoint(
-        session, "GET", f"/{entity_type}?company_guid={company_b_guid}",
-        {"Authorization": f"Bearer {company_a_token}"},
-        403,  # Should be 403 Forbidden
-        debug_msg=f"Company A user viewing Company B {entity_type}"
-    )
-    
-    # Test company B user viewing company A data (should fail)
-    await test_endpoint(
+    # Test that Company A can access its own data and not Company B's
+    assert await helper_test_endpoint(
         session, "GET", f"/{entity_type}?company_guid={company_a_guid}",
-        {"Authorization": f"Bearer {company_b_token}"},
-        403,  # Should be 403 Forbidden
-        debug_msg=f"Company B user viewing Company A {entity_type}"
+        {"Authorization": f"Bearer {company_a_token}"}, 200,
+        debug_msg=f"JWT - Company A can access its own {entity_type}"
+    )
+    assert await helper_test_endpoint(
+        session, "GET", f"/{entity_type}?company_guid={company_b_guid}",
+        {"Authorization": f"Bearer {company_a_token}"}, 403,
+        debug_msg=f"JWT - Company A cannot access Company B's {entity_type}"
     )
 
 async def run_api_key_tests(
@@ -261,28 +249,16 @@ async def run_api_key_tests(
         company_b_guid: Company B GUID
         entity_type: Entity type to test (projects, components, etc.)
     """
-    # Test company A API key accessing company A data (should succeed)
-    await test_endpoint(
-        session, "GET", f"/{entity_type}",
-        {"X-API-Key": company_a_api_key},
-        200,
-        debug_msg=f"Company A API key accessing own {entity_type}"
-    )
-    
-    # Test company A API key accessing company B data (should fail)
-    await test_endpoint(
-        session, "GET", f"/{entity_type}?company_guid={company_b_guid}",
-        {"X-API-Key": company_a_api_key},
-        403,  # Should be 403 Forbidden
-        debug_msg=f"Company A API key accessing Company B {entity_type}"
-    )
-    
-    # Test company B API key accessing company A data (should fail)
-    await test_endpoint(
+    # Test that API Key A can access its own data and not Company B's
+    assert await helper_test_endpoint(
         session, "GET", f"/{entity_type}?company_guid={company_a_guid}",
-        {"X-API-Key": company_b_api_key},
-        403,  # Should be 403 Forbidden
-        debug_msg=f"Company B API key accessing Company A {entity_type}"
+        {"X-API-Key": company_a_api_key}, 200,
+        debug_msg=f"API Key - Company A can access its own {entity_type}"
+    )
+    assert await helper_test_endpoint(
+        session, "GET", f"/{entity_type}?company_guid={company_b_guid}",
+        {"X-API-Key": company_a_api_key}, 403,
+        debug_msg=f"API Key - Company A cannot access Company B's {entity_type}"
     )
 
 async def run_sync_tests(
@@ -308,25 +284,21 @@ async def run_sync_tests(
         company_a_guid: Company A GUID
         company_b_guid: Company B GUID
     """
-    # Test sync endpoints with wrong company_guid (should fail)
-    for entity in ["projects", "components", "assemblies", "pieces", "articles"]:
-        # Company A trying to sync data for Company B
-        await test_endpoint(
-            session, "POST", f"/sync/{entity}",
-            {"X-API-Key": company_a_api_key},
-            403,  # Should be 403 Forbidden
-            json_data={f"{entity}": [{"company_guid": company_b_guid}]},
-            debug_msg=f"Company A API key syncing Company B {entity}"
-        )
-        
-        # Company B trying to sync data for Company A
-        await test_endpoint(
-            session, "POST", f"/sync/{entity}",
-            {"X-API-Key": company_b_api_key},
-            403,  # Should be 403 Forbidden
-            json_data={f"{entity}": [{"company_guid": company_a_guid}]},
-            debug_msg=f"Company B API key syncing Company A {entity}"
-        )
+    # Test that Company A can sync its own data
+    sync_payload_a = {entity_type: [{"code": f"SYNC_{entity_type.upper()}_A", "company_guid": company_a_guid}]}
+    assert await helper_test_endpoint(
+        session, "POST", f"/sync/{entity_type}",
+        {"X-API-Key": company_a_api_key}, 200, json_data=sync_payload_a,
+        debug_msg=f"Sync - Company A can sync its own {entity_type}"
+    )
+
+    # Test that Company A cannot sync data for Company B
+    sync_payload_b = {entity_type: [{"code": f"SYNC_{entity_type.upper()}_B_FAIL", "company_guid": company_b_guid}]}
+    assert await helper_test_endpoint(
+        session, "POST", f"/sync/{entity_type}",
+        {"X-API-Key": company_a_api_key}, 403, json_data=sync_payload_b,
+        debug_msg=f"Sync - Company A cannot sync Company B's {entity_type}"
+    )
 
 async def main():
     """
@@ -417,7 +389,7 @@ async def test_soft_delete_via_rest_endpoint():
             "code": "TEST_SOFTDEL_PROJ_UPDATED",
             "is_active": True
         }
-        success, _ = await test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
+        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
         assert success, "Failed to create project"
 
         # Create component
@@ -425,7 +397,7 @@ async def test_soft_delete_via_rest_endpoint():
             "code": "TEST_SOFTDEL_COMP_UPDATED",
             "is_active": True
         }
-        success, component_data = await test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
+        success, component_data = await helper_test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
         assert success, "Failed to create component"
         component_guid = component_data["guid"]
 
@@ -434,7 +406,7 @@ async def test_soft_delete_via_rest_endpoint():
             "code": "TEST_SOFTDEL_ASSEMBLY_UPDATED",
             "is_active": True
         }
-        success, assembly_data = await test_endpoint(aiohttp_client, "POST", "/assemblies", headers, 200, assembly_payload)
+        success, assembly_data = await helper_test_endpoint(aiohttp_client, "POST", "/assemblies", headers, 200, assembly_payload)
         assert success, "Failed to create assembly"
         assembly_guid = assembly_data["guid"]
 
@@ -443,7 +415,7 @@ async def test_soft_delete_via_rest_endpoint():
             "code": "TEST_SOFTDEL_PIECE_UPDATED",
             "is_active": True
         }
-        success, piece_data = await test_endpoint(aiohttp_client, "POST", "/pieces", headers, 200, piece_payload)
+        success, piece_data = await helper_test_endpoint(aiohttp_client, "POST", "/pieces", headers, 200, piece_payload)
         assert success, "Failed to create piece"
         piece_guid = piece_data["guid"]
 
@@ -452,13 +424,13 @@ async def test_soft_delete_via_rest_endpoint():
             "code": "TEST_SOFTDEL_ARTICLE_UPDATED",
             "is_active": True
         }
-        success, article_data = await test_endpoint(aiohttp_client, "POST", "/articles", headers, 200, article_payload)
+        success, article_data = await helper_test_endpoint(aiohttp_client, "POST", "/articles", headers, 200, article_payload)
         assert success, "Failed to create article"
         article_guid = article_data["guid"]
 
         # Soft-delete the project
         delete_payload = {"guids": [project_guid], "is_active": False}
-        success, _ = await test_endpoint(aiohttp_client, "PUT", "/projects/set-active", headers, 200, delete_payload)
+        success, _ = await helper_test_endpoint(aiohttp_client, "PUT", "/projects/set-active", headers, 200, delete_payload)
         assert success, "Failed to soft-delete project"
 
         # Verify project is inactive
@@ -509,20 +481,20 @@ async def test_soft_delete_via_sync_endpoint():
             "code": "TEST_SOFTDEL_PROJ_UPDATED",
             "is_active": True
         }
-        success, _ = await test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
+        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
         assert success, "Failed to create project"
 
         component_payload = {
             "code": "TEST_SOFTDEL_COMP_UPDATED",
             "is_active": True
         }
-        success, component_data = await test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
+        success, component_data = await helper_test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
         assert success, "Failed to create component"
         component_guid = component_data["guid"]
 
         # Soft-delete the component
         delete_payload = {"guids": [component_guid], "is_active": False}
-        success, _ = await test_endpoint(aiohttp_client, "PUT", "/components/set-active", headers, 200, delete_payload)
+        success, _ = await helper_test_endpoint(aiohttp_client, "PUT", "/components/set-active", headers, 200, delete_payload)
         assert success, "Failed to soft-delete component"
 
         # Verify component is inactive
@@ -546,14 +518,14 @@ async def test_cascade_soft_delete():
             "code": "TEST_SOFTDEL_PROJ_UPDATED",
             "is_active": True
         }
-        success, _ = await test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
+        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
         assert success, "Failed to create project"
 
         component_payload = {
             "code": "TEST_SOFTDEL_COMP_UPDATED",
             "is_active": True
         }
-        success, component_data = await test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
+        success, component_data = await helper_test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
         assert success, "Failed to create component"
         component_guid = component_data["guid"]
 
@@ -561,7 +533,7 @@ async def test_cascade_soft_delete():
             "code": "TEST_SOFTDEL_ASSEMBLY_UPDATED",
             "is_active": True
         }
-        success, assembly_data = await test_endpoint(aiohttp_client, "POST", "/assemblies", headers, 200, assembly_payload)
+        success, assembly_data = await helper_test_endpoint(aiohttp_client, "POST", "/assemblies", headers, 200, assembly_payload)
         assert success, "Failed to create assembly"
         assembly_guid = assembly_data["guid"]
 
@@ -569,13 +541,13 @@ async def test_cascade_soft_delete():
             "code": "TEST_SOFTDEL_PIECE_UPDATED",
             "is_active": True
         }
-        success, piece_data = await test_endpoint(aiohttp_client, "POST", "/pieces", headers, 200, piece_payload)
+        success, piece_data = await helper_test_endpoint(aiohttp_client, "POST", "/pieces", headers, 200, piece_payload)
         assert success, "Failed to create piece"
         piece_guid = piece_data["guid"]
 
         # Soft-delete the project
         delete_payload = {"guids": [project_guid], "is_active": False}
-        success, _ = await test_endpoint(aiohttp_client, "PUT", "/projects/set-active", headers, 200, delete_payload)
+        success, _ = await helper_test_endpoint(aiohttp_client, "PUT", "/projects/set-active", headers, 200, delete_payload)
         assert success, "Failed to soft-delete project"
 
         # Verify all children are inactive
@@ -609,14 +581,14 @@ async def test_restore_and_selective_child_restoration():
             "code": "TEST_SOFTDEL_PROJ_UPDATED",
             "is_active": True
         }
-        success, _ = await test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
+        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
         assert success, "Failed to create project"
 
         component_payload = {
             "code": "TEST_SOFTDEL_COMP_UPDATED",
             "is_active": True
         }
-        success, component_data = await test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
+        success, component_data = await helper_test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
         assert success, "Failed to create component"
         component_guid = component_data["guid"]
 
@@ -624,7 +596,7 @@ async def test_restore_and_selective_child_restoration():
             "code": "TEST_SOFTDEL_PIECE_UPDATED",
             "is_active": True
         }
-        success, piece1_data = await test_endpoint(aiohttp_client, "POST", "/pieces", headers, 200, piece1_payload)
+        success, piece1_data = await helper_test_endpoint(aiohttp_client, "POST", "/pieces", headers, 200, piece1_payload)
         assert success, "Failed to create piece1"
         piece1_guid = piece1_data["guid"]
 
@@ -632,13 +604,13 @@ async def test_restore_and_selective_child_restoration():
             "code": "TEST_SOFTDEL_PIECE_UPDATED",
             "is_active": True
         }
-        success, piece2_data = await test_endpoint(aiohttp_client, "POST", "/pieces", headers, 200, piece2_payload)
+        success, piece2_data = await helper_test_endpoint(aiohttp_client, "POST", "/pieces", headers, 200, piece2_payload)
         assert success, "Failed to create piece2"
         piece2_guid = piece2_data["guid"]
 
         # Soft-delete the project
         delete_payload = {"guids": [project_guid], "is_active": False}
-        success, _ = await test_endpoint(aiohttp_client, "PUT", "/projects/set-active", headers, 200, delete_payload)
+        success, _ = await helper_test_endpoint(aiohttp_client, "PUT", "/projects/set-active", headers, 200, delete_payload)
         assert success, "Failed to soft-delete project"
 
         # Verify component is active but piece1 is inactive
@@ -672,7 +644,7 @@ async def test_sync_after_soft_delete_reactivation():
             "code": "TEST_SOFTDEL_PROJ_UPDATED",
             "is_active": True
         }
-        success, _ = await test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
+        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
         assert success, "Failed to create project"
 
         component_payload = {
@@ -680,13 +652,13 @@ async def test_sync_after_soft_delete_reactivation():
             "is_active": True,
             "quantity": 2
         }
-        success, component_data = await test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
+        success, component_data = await helper_test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
         assert success, "Failed to create component"
         component_guid = component_data["guid"]
 
         # Soft-delete the component
         delete_payload = {"guids": [component_guid], "is_active": False}
-        success, _ = await test_endpoint(aiohttp_client, "PUT", "/components/set-active", headers, 200, delete_payload)
+        success, _ = await helper_test_endpoint(aiohttp_client, "PUT", "/components/set-active", headers, 200, delete_payload)
         assert success, "Failed to soft-delete component"
 
         # Verify component is inactive
@@ -712,7 +684,7 @@ async def test_get_with_and_without_inactive_entities():
             "code": "TEST_SOFTDEL_PROJ_UPDATED",
             "is_active": True
         }
-        success, _ = await test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
+        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
         assert success, "Failed to create project"
 
         component_payload = {
@@ -720,7 +692,7 @@ async def test_get_with_and_without_inactive_entities():
             "is_active": True,
             "quantity": 2
         }
-        success, component_data = await test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
+        success, component_data = await helper_test_endpoint(aiohttp_client, "POST", "/components", headers, 200, component_payload)
         assert success, "Failed to create component"
         component_guid = component_data["guid"]
 

@@ -20,9 +20,10 @@ import json
 import sys
 from typing import Dict, Any, Optional, List
 import pytest
+import os
 
 # Configuration
-BASE_URL = "http://localhost:8000"
+BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 API_PREFIX = "/api/v1"
 
 # Credentials - Change these to match your test environment

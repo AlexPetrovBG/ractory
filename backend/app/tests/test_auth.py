@@ -12,7 +12,7 @@ from typing import Dict, Any
 # Configuration
 BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 API_PREFIX = "/api/v1"
-TEST_USER_CREDS = {"email": "admin1.a@example.com", "password": "password"}
+TEST_USER_CREDS = {"username": "admin1.a@example.com", "password": "password"}
 
 
 @pytest.mark.asyncio
@@ -37,7 +37,7 @@ async def test_user_login_and_me_endpoint():
         async with session.get(me_url, headers=headers) as response:
             assert response.status == 200, f"/auth/me endpoint failed: {await response.text()}"
             me_data = await response.json()
-            assert me_data["email"] == TEST_USER_CREDS["email"]
+            assert me_data["email"] == TEST_USER_CREDS["username"]
             assert me_data["role"]["name"] == "CompanyAdmin"
             assert "company" in me_data
             print("✅ User login and /auth/me endpoint test passed!") 
