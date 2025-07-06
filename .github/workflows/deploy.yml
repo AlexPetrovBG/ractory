@@ -55,8 +55,44 @@ jobs:
       - name: Start services for testing
         run: docker compose --profile dev up -d db_dev api
 
-      - name: Wait for services to be healthy
-        run: sleep 30 # Wait for services to initialize
+      - name: Wait for database to be healthy
+        run: |
+          echo "Waiting for database to be ready..."
+          timeout 60 bash -c 'until docker compose --profile dev ps db_dev | grep -q "healthy"; do sleep 2; done'
+          echo "Database is ready!"
+
+      - name: Debug environment variables
+        run: |
+          echo "Checking environment variables in API container..."
+          docker compose --profile dev exec api env | grep DB_
+          echo "Testing database connection..."
+          docker compose --profile dev exec api python -c "
+          import os
+          print('DB_HOST:', os.getenv('DB_HOST'))
+          print('DB_USER:', os.getenv('DB_USER'))
+          print('DB_NAME:', os.getenv('DB_NAME'))
+          "
+
+      - name: Test database connectivity
+        run: |
+          echo "Testing database connection from API container..."
+          docker compose --profile dev exec api python -c "
+          import psycopg2
+          import os
+          try:
+              conn = psycopg2.connect(
+                  host=os.getenv('DB_HOST'),
+                  database=os.getenv('DB_NAME'),
+                  user=os.getenv('DB_USER'),
+                  password=os.getenv('DB_PASSWORD'),
+                  port=os.getenv('DB_PORT', '5432')
+              )
+              print('Database connection successful!')
+              conn.close()
+          except Exception as e:
+              print(f'Database connection failed: {e}')
+              raise
+          "
 
       - name: Run database migrations
         run: docker compose --profile dev exec api alembic upgrade head
