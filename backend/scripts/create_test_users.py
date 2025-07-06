@@ -68,22 +68,32 @@ async def create_test_users():
                     print(f"User {user_config['email']} already exists, skipping...")
                     continue
                 
-                # Create company for this user
-                company_guid = uuid.uuid4()
-                await session.execute(
-                    text("""
-                        INSERT INTO companies (guid, name, code, company_index, is_active) 
-                        VALUES (:guid, :name, :code, :company_index, :is_active)
-                    """),
-                    {
-                        "guid": company_guid,
-                        "name": user_config["company_name"],
-                        "code": user_config["company_code"],
-                        "company_index": user_config["company_index"],
-                        "is_active": True
-                    }
+                # Check if company already exists
+                result = await session.execute(
+                    text("SELECT guid FROM companies WHERE company_index = :company_index"), 
+                    {"company_index": user_config["company_index"]}
                 )
-                print(f"Created company '{user_config['company_name']}' with GUID: {company_guid}")
+                company_guid = result.scalar_one_or_none()
+                
+                if company_guid is None:
+                    # Create company for this user
+                    company_guid = uuid.uuid4()
+                    await session.execute(
+                        text("""
+                            INSERT INTO companies (guid, name, short_name, company_index, is_active) 
+                            VALUES (:guid, :name, :short_name, :company_index, :is_active)
+                        """),
+                        {
+                            "guid": company_guid,
+                            "name": user_config["company_name"],
+                            "short_name": user_config["company_code"],
+                            "company_index": user_config["company_index"],
+                            "is_active": True
+                        }
+                    )
+                    print(f"Created company '{user_config['company_name']}' with GUID: {company_guid}")
+                else:
+                    print(f"Company with index {user_config['company_index']} already exists, using existing company GUID: {company_guid}")
                 
                 # Hash password and create user
                 hashed_password = PWD_CTX.hash(user_config["password"])

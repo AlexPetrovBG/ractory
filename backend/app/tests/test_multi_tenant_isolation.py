@@ -34,6 +34,10 @@ SYSTEM_ADMIN = {"email": "a.petrov@delice.bg", "password": "SecureAdminPassword1
 COMPANY_A_ADMIN = {"email": "admin1.a@example.com", "password": "password"}
 COMPANY_B_ADMIN = {"email": "admin1.b@example.com", "password": "password"}
 
+# Company GUIDs from test users
+company_a_guid = "11111111-1111-1111-1111-111111111111"
+company_b_guid = "22222222-2222-2222-2222-222222222222"
+
 # --- Constants ---
 API_KEY_HEADER_NAME = "X-API-Key"
 
@@ -384,13 +388,16 @@ async def test_soft_delete_via_rest_endpoint():
         headers = {"Authorization": f"Bearer {token}"}
 
         # 2. Create a project, component, assembly, piece, article (via sync endpoints)
-        # Create project
+        # Create project via sync endpoint
         project_payload = {
-            "code": "TEST_SOFTDEL_PROJ_UPDATED",
-            "is_active": True
+            "projects": [{
+                "code": "TEST_SOFTDEL_PROJ_UPDATED",
+                "company_guid": company_a_guid,
+                "is_active": True
+            }]
         }
-        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
-        assert success, "Failed to create project"
+        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/sync/projects", headers, 200, project_payload)
+        assert success, "Failed to create project via sync"
 
         # Create component
         component_payload = {
@@ -478,11 +485,14 @@ async def test_soft_delete_via_sync_endpoint():
 
         # 2. Create a project and component (via sync endpoints)
         project_payload = {
-            "code": "TEST_SOFTDEL_PROJ_UPDATED",
-            "is_active": True
+            "projects": [{
+                "code": "TEST_SOFTDEL_PROJ_UPDATED",
+                "company_guid": company_a_guid,
+                "is_active": True
+            }]
         }
-        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
-        assert success, "Failed to create project"
+        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/sync/projects", headers, 200, project_payload)
+        assert success, "Failed to create project via sync"
 
         component_payload = {
             "code": "TEST_SOFTDEL_COMP_UPDATED",
@@ -515,11 +525,14 @@ async def test_cascade_soft_delete():
 
         # 2. Create a project, component, assembly, and piece (via sync endpoints)
         project_payload = {
-            "code": "TEST_SOFTDEL_PROJ_UPDATED",
-            "is_active": True
+            "projects": [{
+                "code": "TEST_SOFTDEL_PROJ_UPDATED",
+                "company_guid": company_a_guid,
+                "is_active": True
+            }]
         }
-        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
-        assert success, "Failed to create project"
+        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/sync/projects", headers, 200, project_payload)
+        assert success, "Failed to create project via sync"
 
         component_payload = {
             "code": "TEST_SOFTDEL_COMP_UPDATED",
@@ -578,11 +591,14 @@ async def test_restore_and_selective_child_restoration():
 
         # 2. Create a project, component, and two pieces (via sync endpoints)
         project_payload = {
-            "code": "TEST_SOFTDEL_PROJ_UPDATED",
-            "is_active": True
+            "projects": [{
+                "code": "TEST_SOFTDEL_PROJ_UPDATED",
+                "company_guid": company_a_guid,
+                "is_active": True
+            }]
         }
-        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
-        assert success, "Failed to create project"
+        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/sync/projects", headers, 200, project_payload)
+        assert success, "Failed to create project via sync"
 
         component_payload = {
             "code": "TEST_SOFTDEL_COMP_UPDATED",
@@ -641,11 +657,14 @@ async def test_sync_after_soft_delete_reactivation():
 
         # 2. Create a project and component (via sync endpoints)
         project_payload = {
-            "code": "TEST_SOFTDEL_PROJ_UPDATED",
-            "is_active": True
+            "projects": [{
+                "code": "TEST_SOFTDEL_PROJ_UPDATED",
+                "company_guid": company_a_guid,
+                "is_active": True
+            }]
         }
-        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
-        assert success, "Failed to create project"
+        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/sync/projects", headers, 200, project_payload)
+        assert success, "Failed to create project via sync"
 
         component_payload = {
             "code": "REACTIVATE_COMP_UPDATED",
@@ -681,11 +700,14 @@ async def test_get_with_and_without_inactive_entities():
 
         # 2. Create a project and component (via sync endpoints)
         project_payload = {
-            "code": "TEST_SOFTDEL_PROJ_UPDATED",
-            "is_active": True
+            "projects": [{
+                "code": "TEST_SOFTDEL_PROJ_UPDATED",
+                "company_guid": company_a_guid,
+                "is_active": True
+            }]
         }
-        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/projects", headers, 200, project_payload)
-        assert success, "Failed to create project"
+        success, _ = await helper_test_endpoint(aiohttp_client, "POST", "/sync/projects", headers, 200, project_payload)
+        assert success, "Failed to create project via sync"
 
         component_payload = {
             "code": "REACTIVATE_COMP_UPDATED",
