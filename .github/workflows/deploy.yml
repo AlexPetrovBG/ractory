@@ -67,7 +67,7 @@ jobs:
       
       - name: Run pytest
         id: tests
-        working-directory: src/ractory/backend
+        working-directory: backend
         run: |
           export PYTHONPATH=$(pwd)
           pytest
