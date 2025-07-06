@@ -21,7 +21,7 @@ PASSWORD = "password"
 async def get_auth_token(session: aiohttp.ClientSession) -> str:
     """Get authentication token for a user."""
     login_url = f"{BASE_URL}{API_PREFIX}/auth/login"
-    credentials = {"username": EMAIL, "password": PASSWORD}
+    credentials = {"email": EMAIL, "password": PASSWORD}
     async with session.post(login_url, json=credentials) as response:
         response.raise_for_status()
         data = await response.json()

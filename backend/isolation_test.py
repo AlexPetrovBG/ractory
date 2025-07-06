@@ -27,7 +27,7 @@ BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 API_PREFIX = "/api/v1"
 
 # Credentials - Change these to match your test environment
-SYSTEM_ADMIN_CREDS = {"email": "a.petrov@delice.bg", "password": "password"}
+SYSTEM_ADMIN_CREDS = {"email": "a.petrov@delice.bg", "password": "SecureAdminPassword123"}
 COMPANY_A_ADMIN_CREDS = {"email": "admin1.a@example.com", "password": "password"}
 COMPANY_B_ADMIN_CREDS = {"email": "admin1.b@example.com", "password": "password"}
 

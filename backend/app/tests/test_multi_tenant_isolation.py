@@ -30,7 +30,7 @@ API_PREFIX = "/api/v1"
 DEBUG = True  # Set to True for detailed output
 
 # Test users (replace with actual credentials from your environment)
-SYSTEM_ADMIN = {"email": "a.petrov@delice.bg", "password": "password"}
+SYSTEM_ADMIN = {"email": "a.petrov@delice.bg", "password": "SecureAdminPassword123"}
 COMPANY_A_ADMIN = {"email": "admin1.a@example.com", "password": "password"}
 COMPANY_B_ADMIN = {"email": "admin1.b@example.com", "password": "password"}
 
@@ -39,7 +39,7 @@ API_KEY_HEADER_NAME = "X-API-Key"
 
 async def login_and_get_token(session, email, password):
     """Helper to log in and get a token."""
-    credentials = {"username": email, "password": password}
+    credentials = {"email": email, "password": password}
     async with session.post(f"{BASE_URL}/api/v1/auth/login", json=credentials) as resp:
         assert resp.status == 200, await resp.text()
         data = await resp.json()
