@@ -20,8 +20,8 @@ import json
 import sys
 from typing import Dict, List, Any, Tuple, Optional
 import pytest
-from app.services.auth_service import AuthService, APIKeyAuth
-from app.core.security import get_password_hash
+from app.services.auth_service import AuthService
+from app.core.security import hash_password
 
 # Configuration
 BASE_URL = "http://localhost:8000"
