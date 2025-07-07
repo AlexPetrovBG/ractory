@@ -3,7 +3,7 @@ import secrets
 import string
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from fastapi import HTTPException, status
 
@@ -145,16 +145,20 @@ class ApiKeyService:
         
         # Save to database
         session.add(new_key)
-        await session.commit()
-        await session.refresh(new_key)
+        await session.flush()  # This populates the created_at field without committing
         
-        # Return the details including the raw key (which won't be retrievable again)
+        # Capture the created_at timestamp before commit
+        created_at = new_key.created_at
+        
+        await session.commit()
+        
+        # Return the response with the actual database timestamp
         return {
             "guid": new_key.guid,
             "key": raw_key,
             "description": new_key.description,
             "scopes": new_key.scopes,
-            "created_at": new_key.created_at,
+            "created_at": created_at,
             "company_guid": new_key.company_guid
         }
     

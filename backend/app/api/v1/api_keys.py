@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, status, Depends, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 import uuid
+import logging
+import traceback
 
 from app.schemas.api_key import (
     ApiKeyCreate, ApiKeyCreated, ApiKeyResponse, 
@@ -67,9 +69,17 @@ async def create_api_key(
         )
         return result
     except HTTPException:
-        # Re-raise HTTPExceptions (like 422 from scope validation) directly
         raise
     except Exception as e:
+        # Log the full traceback and error
+        logging.error(f"API key creation failed: {e}")
+        logging.error(traceback.format_exc())
+        # Try returning a minimal response to isolate serialization issues
+        try:
+            if 'result' in locals() and 'guid' in result:
+                return {"guid": str(result["guid"])}
+        except Exception as inner:
+            logging.error(f"Minimal response also failed: {inner}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create API key: {str(e)}"
