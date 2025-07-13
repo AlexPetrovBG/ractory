@@ -200,16 +200,16 @@ jobs:
           sleep 10
           
           # Check API health endpoint
-          for i in {1..6}; do
-            echo "Health check attempt $i/6..."
+          for i in {1..2}; do
+            echo "Health check attempt $i/2..."
             if curl -f -s https://rafactory.raworkshop.bg/api/v1/health; then
               echo "✅ API health check passed!"
               break
             else
               echo "❌ Health check failed, retrying in 10 seconds..."
               sleep 10
-              if [ $i -eq 6 ]; then
-                echo "🚨 Health checks failed after 6 attempts!"
+              if [ $i -eq 2 ]; then
+                echo "🚨 Health checks failed after 2 attempts!"
                 exit 1
               fi
             fi
