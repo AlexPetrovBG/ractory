@@ -45,13 +45,16 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: echo "SSH connection test successful"
 
-      - name: Lint with ruff
+      - name: Lint with flake8
         run: |
-          pip install ruff
-          ruff check --output-format=github src/ractory/backend/ || echo "Ruff found issues, but we're not failing the build."
+          pip install flake8
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 backend/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings
+          flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Install Test Dependencies
-        run: pip install -r src/ractory/backend/requirements-test.txt
+        run: pip install -r backend/requirements-test.txt
 
       - name: Create .env file for CI/CD
         run: |
@@ -116,10 +119,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r backend/requirements.txt
 
-      - name: Lint with ruff
+      - name: Lint with flake8
         run: |
-          pip install ruff
-          ruff check --output-format=github backend/
+          pip install flake8
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 backend/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings
+          flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Install Test Dependencies
         run: |
