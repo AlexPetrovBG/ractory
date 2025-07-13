@@ -8,6 +8,9 @@ from app.utils.security import decode_token
 from app.core.database import get_db
 from app.models.enums import UserRole
 
+# Type alias for current user data
+CurrentUser = Dict[str, Any]
+
 # Define the OAuth2 scheme for JWT
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
@@ -35,7 +38,7 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     x_api_key: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
+) -> CurrentUser:
     """Get the current user from JWT token or API key."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -105,7 +108,7 @@ async def get_current_user(
 def require_roles(*roles: UserRole):
     """Dependency for requiring specific roles."""
     async def role_checker(
-        current_user: Dict[str, Any] = Depends(get_current_user),
+        current_user: CurrentUser = Depends(get_current_user),
     ):
         if current_user["role"] not in roles:
             raise HTTPException(
@@ -125,7 +128,7 @@ async def set_tenant_for_session(db: AsyncSession, tenant_id: str):
     
 # Middleware to automatically set the tenant based on the authenticated user
 async def tenant_middleware(
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Set the tenant ID for the current database session based on user."""
@@ -137,7 +140,7 @@ async def tenant_middleware(
 # Workstation verification for operator sessions
 async def verify_workstation(
     workstation_id: str,
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Verify that operator has access to this workstation."""
     # Check if token has workstation claim
