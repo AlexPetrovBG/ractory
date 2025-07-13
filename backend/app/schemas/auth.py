@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 from uuid import UUID
 
-class Token(BaseModel):
+class TokenResponse(BaseModel):
     """Token response schema."""
     access_token: str
     refresh_token: str = None
@@ -17,17 +17,21 @@ class TokenData(BaseModel):
     company_guid: Optional[UUID] = None
     exp: int
 
-class TokenRefresh(BaseModel):
+class RefreshRequest(BaseModel):
     """Token refresh request schema."""
     refresh_token: str
 
-class Login(BaseModel):
+class LoginRequest(BaseModel):
     """Login request schema."""
     email: EmailStr
     password: str
 
-class QRAuth(BaseModel):
+class QrLoginRequest(BaseModel):
     """QR code authentication request schema."""
     user_guid: str
     workstation_guid: str
-    pin: str 
+    pin: str
+
+class ErrorResponse(BaseModel):
+    """Error response schema."""
+    detail: str 
