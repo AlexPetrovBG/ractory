@@ -1,0 +1,267 @@
+name: Deploy Ra Factory
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  deploy_dev:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      DB_HOST: db_dev
+      DB_PORT: 5432
+      DB_NAME: rafactory_dev
+      DB_USER: rafactory_rw
+      DB_PASSWORD: testpassword123
+      JWT_SECRET: test_jwt_secret_for_ci_cd
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r src/ractory/backend/requirements.txt
+
+      - name: Test Docker Hub Login
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Test SSH Connection
+        uses: appleboy/ssh-action@master
+        with:
+          host: rafactorydev.raworkshop.bg
+          username: alex
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: echo "SSH connection test successful"
+
+      - name: Lint with ruff
+        run: |
+          pip install ruff
+          ruff check --output-format=github src/ractory/backend/ || echo "Ruff found issues, but we're not failing the build."
+
+      - name: Install Test Dependencies
+        run: pip install -r src/ractory/backend/requirements-test.txt
+
+      - name: Create .env file for CI/CD
+        run: |
+          cd src/ractory
+          cat > .env << EOF
+          DB_HOST=db_dev
+          DB_PORT=5432
+          DB_NAME=rafactory_dev
+          DB_USER=rafactory_rw
+          DB_PASSWORD=testpassword123
+          JWT_SECRET=test_jwt_secret_for_ci_cd
+          EOF
+
+      - name: Start services for testing
+        run: docker compose -f src/ractory/docker-compose.yml --profile dev up -d db_dev api
+
+      - name: Wait for services to be healthy
+        run: sleep 15 # Simple wait for services to initialize
+
+      - name: Run database migrations
+        run: docker compose -f src/ractory/docker-compose.yml exec api alembic upgrade head
+
+      - name: Copy seeding script to database container
+        run: docker cp src/ractory/backend/app/scripts/insert_initial_admin.sql $(docker compose -f src/ractory/docker-compose.yml ps -q db_dev):/tmp/seed.sql
+
+      - name: Run database seeding
+        run: docker compose -f src/ractory/docker-compose.yml exec db_dev psql -U rafactory_rw -d rafactory_dev -f /tmp/seed.sql
+
+      - name: Run pytest
+        id: tests
+        working-directory: src/ractory/backend
+        run: |
+          export PYTHONPATH=$(pwd)
+          pytest
+        continue-on-error: true
+
+      - name: Dump API logs on test failure
+        if: steps.tests.outcome == 'failure'
+        run: docker compose -f src/ractory/docker-compose.yml logs api
+
+      - name: Stop services
+        if: always()
+        run: docker compose -f src/ractory/docker-compose.yml down
+
+      - name: Check test results
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
+
+  deploy_prod:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r src/ractory/backend/requirements.txt
+
+      - name: Lint with ruff
+        run: |
+          pip install ruff
+          ruff check --output-format=github src/ractory/backend/
+
+      - name: Install Test Dependencies
+        run: |
+          pip install pytest
+          pip install httpx  # for API testing
+
+      - name: Run pytest
+        working-directory: src/ractory/backend
+        run: |
+          export PYTHONPATH=$(pwd)
+          pytest
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push production API image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/ractory/backend
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:latest
+            ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to Production Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: rafactory.raworkshop.bg
+          username: alex
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "🚀 Starting production deployment..."
+            
+            # Navigate to production directory
+            cd /home/alex/apps/ractory/prod
+            
+            # Pull latest code
+            echo "📥 Pulling latest code..."
+            git pull origin main || echo "Git pull failed, continuing with existing code"
+            
+                         # Update docker-compose to use registry image
+             echo "🔧 Updating docker-compose for registry image..."
+             sed -i 's|build: ./backend|image: ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:${{ github.sha }}|g' docker-compose.yml
+            
+            # Pull the new image
+            echo "📦 Pulling new Docker image..."
+            docker pull ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:${{ github.sha }}
+            
+            # Stop current containers gracefully
+            echo "⏸️ Stopping current containers..."
+            docker compose down --timeout 30
+            
+            # Start new containers
+            echo "🔄 Starting new containers..."
+            docker compose up -d
+            
+            # Wait for API to be ready
+            echo "⏳ Waiting for API to be ready..."
+            sleep 30
+            
+            # Run database migrations
+            echo "🗄️ Running database migrations..."
+            docker compose exec -T api alembic upgrade head
+            
+            # Clean up old images (keep last 3 versions)
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
+            docker images ${{ secrets.DOCKER_USERNAME }}/ra-factory-api --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}" | tail -n +4 | head -n -3 | awk '{print $3}' | xargs -r docker rmi || true
+            
+            echo "✅ Production deployment completed!"
+
+      - name: Health Check
+        run: |
+          echo "🏥 Performing health checks..."
+          sleep 10
+          
+          # Check API health endpoint
+          for i in {1..6}; do
+            echo "Health check attempt $i/6..."
+            if curl -f -s https://rafactory.raworkshop.bg/api/v1/health; then
+              echo "✅ API health check passed!"
+              break
+            else
+              echo "❌ Health check failed, retrying in 10 seconds..."
+              sleep 10
+              if [ $i -eq 6 ]; then
+                echo "🚨 Health checks failed after 6 attempts!"
+                exit 1
+              fi
+            fi
+          done
+          
+          # Verify API response content
+          echo "🔍 Verifying API response..."
+          response=$(curl -s https://rafactory.raworkshop.bg/api/v1/health)
+          echo "API Response: $response"
+          
+          if echo "$response" | grep -q "healthy"; then
+            echo "✅ Production deployment successful!"
+          else
+            echo "🚨 API not responding correctly!"
+            exit 1
+          fi
+
+      - name: Rollback on Failure
+        if: failure()
+        uses: appleboy/ssh-action@master
+        with:
+          host: rafactory.raworkshop.bg
+          username: alex
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "🚨 Deployment failed, attempting rollback..."
+            cd /home/alex/apps/ractory/prod
+            
+            # Get the previous image tag (if available)
+            previous_image=$(docker images ${{ secrets.DOCKER_USERNAME }}/ra-factory-api --format "table {{.Repository}}\t{{.Tag}}\t{{.CreatedAt}}" | grep -v latest | head -n 2 | tail -n 1 | awk '{print $2}')
+            
+            if [ ! -z "$previous_image" ] && [ "$previous_image" != "${{ github.sha }}" ]; then
+              echo "🔄 Rolling back to previous image: $previous_image"
+              sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:${{ github.sha }}|image: ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:$previous_image|g" docker-compose.yml
+              docker compose up -d --force-recreate
+              echo "⚠️ Rollback completed. Please check the application manually."
+            else
+              echo "❌ No previous image found for rollback. Manual intervention required."
+            fi
+
+      - name: Notify Deployment Status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "🎉 Production deployment completed successfully!"
+            echo "🌐 Production API: https://rafactory.raworkshop.bg/api/v1/health"
+            echo "📚 API Docs: https://rafactory.raworkshop.bg/docs"
+          else
+            echo "🚨 Production deployment failed!"
+            echo "Please check the logs and consider manual intervention."
+          fi
+
+# Updated CI/CD workflow with database seeding and proper paths 
