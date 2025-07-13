@@ -1,0 +1,6 @@
+-r requirements.txt
+aiohttp
+requests
+pytest-asyncio
+pytest-aiohttp
+httpx 

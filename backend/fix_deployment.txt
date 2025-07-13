@@ -1,0 +1,7 @@
+Fix: Removed debug_imports.py file that was causing syntax error during deployment linting phase.
+
+This file was causing the deployment to fail with:
+E999 SyntaxError: invalid syntax at line 1
+
+The debug file contained a long one-line script that violated Python syntax rules.
+Deployment should now continue successfully. 

@@ -1,0 +1,55 @@
+<!doctype html>
+<!-- Adjust language and direction based on Metronic layout -->
+<html lang="en" data-theme="true" data-theme-mode="light" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RaFactory Admin</title>
+
+    <!-- Metronic Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Metronic Tailwind Stylesheets -->
+    <link href="/assets/vendors/keenicons/styles.bundle.css" rel="stylesheet" />
+    <link href="/assets/css/styles.css" rel="stylesheet" />
+
+    <!-- Your Custom CSS (via Vite) -->
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <!-- Add Metronic body classes based on chosen layout/demo -->
+  <body class="antialiased flex h-full text-base text-gray-700 dark:bg-coal-500">
+    <!--begin::Theme mode setup on page load-->
+    <script>
+      const defaultThemeMode = 'light'; // light|dark|system
+		  let themeMode;
+
+		  if (document.documentElement) {
+			  if (localStorage.getItem('theme')) {
+				  themeMode = localStorage.getItem('theme');
+			  } else if (document.documentElement.hasAttribute('data-theme-mode')) {
+				  themeMode = document.documentElement.getAttribute('data-theme-mode');
+			  } else {
+				  themeMode = defaultThemeMode;
+			  }
+
+			  if (themeMode === 'system') {
+				  themeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+			  }
+
+			  document.documentElement.classList.add(themeMode);
+		  }
+    </script>
+    <!--end::Theme mode setup on page load-->
+
+    <!-- Main Application Root -->
+    <div id="app" class="flex flex-column flex-root grow"></div>
+
+    <!-- Metronic Core JavaScript Bundle -->
+    <script src="/assets/js/core.bundle.js"></script>
+
+    <!-- Metronic Page Specific Vendors/Custom JS (Load dynamically if needed) -->
+    <!-- Example: <script src="/assets/plugins/custom/datatables/datatables.bundle.js"></script> -->
+
+  </body>
+</html>

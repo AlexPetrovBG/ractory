@@ -1,0 +1,479 @@
+
+> admin@0.0.0 dev
+> vite
+
+
+  VITE v6.3.2  ready in 201 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+11:24:10 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:33:31 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:33:31 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:33:32 AM [vite] Internal server error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+      at TransformPluginContext._formatLog (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42425:41)
+      at TransformPluginContext.error (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42422:16)
+      at normalizeUrl (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40401:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40520:37
+      at async Promise.all (index 0)
+      at async TransformPluginContext.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40447:7)
+      at async EnvironmentPluginContainer.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42220:18)
+      at async loadAndTransform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:35678:27)
+11:33:32 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:34:06 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:34:06 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:34:06 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:34:06 AM [vite] Internal server error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+      at TransformPluginContext._formatLog (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42425:41)
+      at TransformPluginContext.error (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42422:16)
+      at normalizeUrl (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40401:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40520:37
+      at async Promise.all (index 0)
+      at async TransformPluginContext.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40447:7)
+      at async EnvironmentPluginContainer.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42220:18)
+      at async loadAndTransform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:35678:27)
+11:34:39 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:34:39 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:34:39 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:34:39 AM [vite] Internal server error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+      at TransformPluginContext._formatLog (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42425:41)
+      at TransformPluginContext.error (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42422:16)
+      at normalizeUrl (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40401:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40520:37
+      at async Promise.all (index 0)
+      at async TransformPluginContext.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40447:7)
+      at async EnvironmentPluginContainer.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42220:18)
+      at async loadAndTransform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:35678:27)
+      at async viteTransformMiddleware (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:37176:24)
+11:35:15 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:35:15 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:35:15 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:35:15 AM [vite] Internal server error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+      at TransformPluginContext._formatLog (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42425:41)
+      at TransformPluginContext.error (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42422:16)
+      at normalizeUrl (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40401:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40520:37
+      at async Promise.all (index 0)
+      at async TransformPluginContext.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40447:7)
+      at async EnvironmentPluginContainer.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42220:18)
+      at async loadAndTransform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:35678:27)
+11:36:00 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:36:00 AM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import typescriptLogo from "./typescript.svg";
+  3  |  import viteLogo from "/vite.svg";
+11:38:03 AM [vite] (client) page reload src/main.ts
+11:38:22 AM [vite] (client) hmr update /src/style.css
+
+> admin@0.0.0 dev
+> vite
+
+Port 5173 is in use, trying another one...
+
+  VITE v6.3.2  ready in 205 ms
+
+  ➜  Local:   http://localhost:5174/
+  ➜  Network: use --host to expose
+11:41:35 AM [vite] (client) hmr update /src/style.css
+11:41:41 AM [vite] (client) page reload src/main.ts
+11:42:40 AM [vite] (client) page reload index.html
+11:42:40 AM [vite] (client) page reload index.html
+11:42:45 AM [vite] (client) page reload index.html
+11:42:45 AM [vite] (client) page reload index.html
+
+> admin@0.0.0 dev
+> vite
+
+Port 5173 is in use, trying another one...
+Port 5174 is in use, trying another one...
+
+  VITE v6.3.2  ready in 217 ms
+
+  ➜  Local:   http://localhost:5175/
+  ➜  Network: use --host to expose
+
+> admin@0.0.0 dev
+> vite
+
+Port 5173 is in use, trying another one...
+Port 5174 is in use, trying another one...
+
+  VITE v6.3.2  ready in 202 ms
+
+  ➜  Local:   http://localhost:5175/
+  ➜  Network: use --host to expose
+
+> admin@0.0.0 dev
+> vite --host
+
+Port 5173 is in use, trying another one...
+Port 5174 is in use, trying another one...
+Port 5175 is in use, trying another one...
+
+  VITE v6.3.2  ready in 197 ms
+
+  ➜  Local:   http://localhost:5176/
+  ➜  Network: http://87.246.26.4:5176/
+  ➜  Network: http://172.19.0.1:5176/
+  ➜  Network: http://172.21.0.1:5176/
+12:15:40 PM [vite] (client) page reload index.html
+12:15:40 PM [vite] (client) page reload index.html
+12:15:40 PM [vite] (client) page reload index.html
+12:15:40 PM [vite] (client) page reload index.html
+
+> admin@0.0.0 dev
+> vite --host
+
+Port 5173 is in use, trying another one...
+Port 5174 is in use, trying another one...
+Port 5175 is in use, trying another one...
+Port 5176 is in use, trying another one...
+
+  VITE v6.3.2  ready in 198 ms
+
+  ➜  Local:   http://localhost:5177/
+  ➜  Network: http://87.246.26.4:5177/
+  ➜  Network: http://172.19.0.1:5177/
+  ➜  Network: http://172.21.0.1:5177/
+12:17:47 PM [vite] (client) page reload index.html
+12:17:47 PM [vite] (client) page reload index.html
+12:17:47 PM [vite] (client) page reload index.html
+12:17:47 PM [vite] (client) page reload index.html
+12:17:47 PM [vite] (client) page reload index.html
+12:17:51 PM [vite] (client) page reload index.html
+12:17:51 PM [vite] (client) page reload index.html
+12:17:51 PM [vite] (client) page reload index.html
+12:17:51 PM [vite] (client) page reload index.html
+12:17:51 PM [vite] (client) page reload index.html
+12:17:55 PM [vite] (client) page reload index.html
+12:17:55 PM [vite] (client) page reload index.html
+12:17:55 PM [vite] (client) page reload index.html
+12:17:55 PM [vite] (client) page reload index.html
+12:17:55 PM [vite] (client) page reload index.html
+12:18:06 PM [vite] (client) page reload index.html
+12:18:06 PM [vite] (client) page reload index.html
+12:18:06 PM [vite] (client) page reload index.html
+12:18:06 PM [vite] (client) page reload index.html
+12:18:06 PM [vite] (client) page reload index.html
+
+> admin@0.0.0 dev
+> vite --host
+
+Port 5173 is in use, trying another one...
+Port 5174 is in use, trying another one...
+Port 5175 is in use, trying another one...
+Port 5176 is in use, trying another one...
+Port 5177 is in use, trying another one...
+
+  VITE v6.3.2  ready in 210 ms
+
+  ➜  Local:   http://localhost:5178/
+  ➜  Network: http://87.246.26.4:5178/
+  ➜  Network: http://172.19.0.1:5178/
+  ➜  Network: http://172.21.0.1:5178/
+12:30:14 PM [vite] (client) page reload index.html
+12:30:14 PM [vite] (client) page reload index.html
+12:30:14 PM [vite] (client) page reload index.html
+12:30:14 PM [vite] (client) page reload index.html
+12:30:14 PM [vite] (client) page reload index.html
+12:30:14 PM [vite] (client) page reload index.html
+12:30:17 PM [vite] (client) page reload index.html
+12:30:17 PM [vite] (client) page reload index.html
+12:30:17 PM [vite] (client) page reload index.html
+12:30:17 PM [vite] (client) page reload index.html
+12:30:17 PM [vite] (client) page reload index.html
+12:30:17 PM [vite] (client) page reload index.html
+12:38:47 PM [vite] (client) page reload src/main.ts
+12:38:47 PM [vite] (client) page reload src/main.ts
+12:38:47 PM [vite] (client) page reload src/main.ts
+12:38:47 PM [vite] (client) page reload src/main.ts
+12:38:48 PM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+12:38:48 PM [vite] Internal server error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+      at TransformPluginContext._formatLog (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42425:41)
+      at TransformPluginContext.error (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42422:16)
+      at normalizeUrl (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40401:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40520:37
+      at async Promise.all (index 0)
+      at async TransformPluginContext.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40447:7)
+      at async EnvironmentPluginContainer.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42220:18)
+      at async loadAndTransform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:35678:27)
+      at async viteTransformMiddleware (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:37176:24)
+12:38:48 PM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+12:38:48 PM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+12:39:04 PM [vite] (client) page reload src/auth.ts
+12:39:04 PM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+12:39:04 PM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+12:39:04 PM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+12:39:04 PM [vite] Internal server error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+      at TransformPluginContext._formatLog (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42425:41)
+      at TransformPluginContext.error (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42422:16)
+      at normalizeUrl (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40401:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40520:37
+      at async Promise.all (index 0)
+      at async TransformPluginContext.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40447:7)
+      at async EnvironmentPluginContainer.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42220:18)
+      at async loadAndTransform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:35678:27)
+12:39:13 PM [vite] (client) page reload src/main.ts
+12:39:13 PM [vite] (client) page reload src/main.ts
+12:39:13 PM [vite] (client) page reload src/main.ts
+12:39:13 PM [vite] (client) page reload src/main.ts
+12:39:13 PM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+12:39:13 PM [vite] Internal server error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+      at TransformPluginContext._formatLog (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42425:41)
+      at TransformPluginContext.error (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42422:16)
+      at normalizeUrl (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40401:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40520:37
+      at async Promise.all (index 0)
+      at async TransformPluginContext.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40447:7)
+      at async EnvironmentPluginContainer.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42220:18)
+      at async loadAndTransform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:35678:27)
+      at async viteTransformMiddleware (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:37176:24)
+12:39:13 PM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+12:39:13 PM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+12:39:36 PM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+12:39:36 PM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+12:39:36 PM [vite] Pre-transform error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+12:39:36 PM [vite] Internal server error: Failed to resolve import "./index.css" from "src/main.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /home/alex/src/ractory/frontend/admin/src/main.ts:1:7
+  1  |  import "./index.css";
+     |          ^
+  2  |  import { initializeLayout, loadContent } from "./layout";
+  3  |  import { showLoginPage, handleLogin } from "./auth";
+      at TransformPluginContext._formatLog (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42425:41)
+      at TransformPluginContext.error (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42422:16)
+      at normalizeUrl (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40401:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40520:37
+      at async Promise.all (index 0)
+      at async TransformPluginContext.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:40447:7)
+      at async EnvironmentPluginContainer.transform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:42220:18)
+      at async loadAndTransform (file:///home/alex/src/ractory/frontend/admin/node_modules/vite/dist/node/chunks/dep-DG3BLbPj.js:35678:27)
+12:46:01 PM [vite] (client) page reload src/main.ts
+12:46:01 PM [vite] (client) page reload src/main.ts
+12:46:01 PM [vite] (client) page reload src/main.ts
+12:46:01 PM [vite] (client) page reload src/main.ts
+12:53:35 PM [vite] (client) page reload src/main.ts
+12:53:35 PM [vite] (client) page reload src/main.ts
+12:53:35 PM [vite] (client) page reload src/main.ts
+12:56:32 PM [vite] (client) page reload index.html
+12:56:32 PM [vite] (client) page reload index.html
+12:56:32 PM [vite] (client) page reload index.html
+12:56:32 PM [vite] (client) page reload index.html
+12:56:32 PM [vite] (client) page reload index.html
+1:41:18 PM [vite] (client) page reload index.html
+1:41:18 PM [vite] (client) page reload index.html
+1:41:18 PM [vite] (client) page reload index.html
+1:41:18 PM [vite] (client) page reload index.html
+1:41:18 PM [vite] (client) page reload index.html
+1:46:00 PM [vite] (client) hmr update /src/style.css
+1:46:00 PM [vite] (client) hmr update /src/style.css
+1:46:00 PM [vite] (client) hmr update /src/style.css
