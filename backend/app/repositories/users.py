@@ -1,10 +1,12 @@
-from sqlalchemy import select, func
+from typing import Optional, List, Dict, Any
+from sqlalchemy import select, update, delete, func, text
+from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Dict, Any, Tuple, List, Optional
+from sqlalchemy.exc import IntegrityError
 from uuid import UUID
 
 from app.models.user import User
-from app.models.enums import Role
+from app.models.enums import UserRole
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[Dict[str, Any]]:
     """
