@@ -6,7 +6,7 @@ from sqlalchemy import text
 
 from app.utils.security import decode_token
 from app.core.database import get_db
-from app.models.enums import Role
+from app.models.enums import UserRole
 
 # Define the OAuth2 scheme for JWT
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
@@ -19,14 +19,14 @@ async def get_user_by_id(db: AsyncSession, user_id: str):
         return {
             "guid": user_id,
             "email": "admin@example.com",
-            "role": Role.SYSTEM_ADMIN,
+            "role": UserRole.SYSTEM_ADMIN,
             "company_guid": "11111111-1111-1111-1111-111111111111",
         }
     elif user_id == "22222222-2222-2222-2222-222222222222":
         return {
             "guid": user_id,
             "email": "admin@testcompany.com",
-            "role": Role.COMPANY_ADMIN,
+            "role": UserRole.COMPANY_ADMIN,
             "company_guid": "11111111-1111-1111-1111-111111111111",
         }
     return None
@@ -65,10 +65,10 @@ async def get_current_user(
             if role_str:
                 # Convert string role to enum
                 try:
-                    user["role"] = Role(role_str)
+                    user["role"] = UserRole(role_str)
                 except ValueError:
-                    # If role in token doesn't match any valid Role enum
-                    user["role"] = Role.OPERATOR  # Default fallback
+                    # If role in token doesn't match any valid UserRole enum
+                    user["role"] = UserRole.OPERATOR  # Default fallback
             
             # Set tenant in db session for RLS
             await set_tenant_for_session(db, user["company_guid"])
@@ -85,7 +85,7 @@ async def get_current_user(
             user = {
                 "guid": "integration-user",
                 "email": "integration@testcompany.com",
-                "role": Role.INTEGRATION,
+                "role": UserRole.INTEGRATION,
                 "company_guid": "11111111-1111-1111-1111-111111111111",
                 "token_data": {"scope": "sync:true"}
             }
@@ -102,7 +102,7 @@ async def get_current_user(
     # If no authentication method provided
     raise credentials_exception
 
-def require_roles(*roles: Role):
+def require_roles(*roles: UserRole):
     """Dependency for requiring specific roles."""
     async def role_checker(
         current_user: Dict[str, Any] = Depends(get_current_user),
@@ -145,7 +145,7 @@ async def verify_workstation(
     ws_claim = token_data.get("ws")
     
     # Operators must have ws claim matching the requested workstation
-    if current_user["role"] == Role.OPERATOR and ws_claim != workstation_id:
+    if current_user["role"] == UserRole.OPERATOR and ws_claim != workstation_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Operator not authorized for this workstation",

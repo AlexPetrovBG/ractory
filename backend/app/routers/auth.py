@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
 from app.core.database import get_db
-from app.models.enums import Role
+from app.models.enums import UserRole
 from app.schemas.auth import Token, TokenRefresh, Login, QRAuth
 from app.utils.security import verify_password, create_token, decode_token
 from app.repositories import users as users_repo
@@ -153,7 +153,7 @@ async def qr_auth(auth_data: QRAuth, db: AsyncSession = Depends(get_db)):
             )
         
         # Verify user is an operator
-        if user["role"] != Role.OPERATOR:
+        if user["role"] != UserRole.OPERATOR:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="QR authentication is only for operators",

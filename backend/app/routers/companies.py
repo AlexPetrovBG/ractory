@@ -5,7 +5,7 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_roles, tenant_middleware
-from app.models.enums import Role
+from app.models.enums import UserRole
 from app.repositories import companies as companies_repo
 from app.schemas.companies import CompanyCreate, CompanyUpdate, CompanyRead
 
@@ -29,7 +29,7 @@ async def list_companies(
     company_guid = current_user["company_guid"]
     
     # For System Admins, return all companies
-    if user_role == Role.SYSTEM_ADMIN:
+    if user_role == UserRole.SYSTEM_ADMIN:
         companies, total = await companies_repo.get_companies(db, page, size)
         return companies
     
@@ -81,7 +81,7 @@ async def get_company(
     user_company_guid = current_user["company_guid"]
     
     # Check permissions
-    if user_role != Role.SYSTEM_ADMIN and str(company_guid) != user_company_guid:
+    if user_role != UserRole.SYSTEM_ADMIN and str(company_guid) != user_company_guid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to view other companies"
@@ -109,7 +109,7 @@ async def create_company(
     Only System Admins can create companies.
     """
     # Check permissions
-    if current_user["role"] != Role.SYSTEM_ADMIN:
+    if current_user["role"] != UserRole.SYSTEM_ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only System Admins can create companies"
@@ -142,7 +142,7 @@ async def update_company(
     user_company_guid = current_user["company_guid"]
     
     # Check permissions
-    if user_role != Role.SYSTEM_ADMIN and str(company_guid) != user_company_guid:
+    if user_role != UserRole.SYSTEM_ADMIN and str(company_guid) != user_company_guid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to update this company"
@@ -171,7 +171,7 @@ async def delete_company(
     Only System Admins can delete companies.
     """
     # Check permissions
-    if current_user["role"] != Role.SYSTEM_ADMIN:
+    if current_user["role"] != UserRole.SYSTEM_ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only System Admins can delete companies"

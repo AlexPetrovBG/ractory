@@ -1,6 +1,6 @@
 from enum import Enum
 
-class Role(str, Enum):
+class UserRole(str, Enum):
     """User roles in the system."""
     SYSTEM_ADMIN = "SystemAdmin"
     COMPANY_ADMIN = "CompanyAdmin" 
