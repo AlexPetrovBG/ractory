@@ -8,6 +8,7 @@ from app.api.v1 import workstations as workstations_router
 from app.api.v1 import api_keys
 from app.api.v1 import projects as projects_router
 from app.api.v1 import workflow as workflow_router
+from app.api.v1 import health as health_router
 from app.api import components as components_router
 from app.api import assemblies as assemblies_router
 from app.api import pieces as pieces_router
@@ -26,6 +27,7 @@ api_router.include_router(workstations_router.router, prefix="/workstations", ta
 api_router.include_router(api_keys.router)
 api_router.include_router(projects_router.router, prefix="/projects", tags=["projects"])
 api_router.include_router(workflow_router.router)
+api_router.include_router(health_router.router, tags=["health"])
 
 # Include the new entity routers
 api_router.include_router(components_router.router, prefix="/components", tags=["components"])
