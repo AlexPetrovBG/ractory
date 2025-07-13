@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 from app.core.config import settings
-from app.routers import auth, sync, users, companies, dashboard
+from app.api.v1.api import api_router
 
 app = FastAPI(
     title="Ra Factory API",
@@ -18,24 +18,18 @@ app.add_middleware(
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
+    allow_headers=["*"],
 )
 
-# Custom exception handlers
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Custom validation error handler for better client error reporting."""
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": exc.errors(), "body": exc.body},
     )
 
-# Include routers
-app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
-app.include_router(sync.router, prefix=settings.API_V1_PREFIX)
-app.include_router(users.router, prefix=settings.API_V1_PREFIX)
-app.include_router(companies.router, prefix=settings.API_V1_PREFIX)
-app.include_router(dashboard.router, prefix=settings.API_V1_PREFIX)
+# Include the main API router (which includes all v1 routes including health)
+app.include_router(api_router)
 
 @app.get("/health")
 async def health_check():
@@ -48,5 +42,5 @@ async def api_root():
     return {
         "name": "Ra Factory API",
         "version": "0.1.0",
-        "documentation": "/docs"
+        "description": "Multi-tenant factory management API"
     } 
