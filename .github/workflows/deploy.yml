@@ -128,9 +128,7 @@ jobs:
           flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Install Test Dependencies
-        run: |
-          pip install pytest
-          pip install httpx  # for API testing
+        run: pip install -r backend/requirements-test.txt
 
       - name: Run pytest
         working-directory: backend
