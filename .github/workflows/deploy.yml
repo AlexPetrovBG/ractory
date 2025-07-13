@@ -117,21 +117,21 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install -r backend/requirements.txt
+        run: pip install -r src/ractory/backend/requirements.txt
 
       - name: Lint with flake8
         run: |
           pip install flake8
           # stop the build if there are Python syntax errors or undefined names
-          flake8 backend/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 src/ractory/backend/ --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings
-          flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          flake8 src/ractory/backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Install Test Dependencies
-        run: pip install -r backend/requirements-test.txt
+        run: pip install -r src/ractory/backend/requirements-test.txt
 
       - name: Run pytest
-        working-directory: backend
+        working-directory: src/ractory/backend
         run: |
           export PYTHONPATH=$(pwd)
           pytest
