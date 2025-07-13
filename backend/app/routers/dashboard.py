@@ -6,7 +6,7 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.deps import tenant_middleware
-from app.models.enums import Role
+from app.models.enums import UserRole
 from app.models.user import User
 from app.models.company import Company
 from app.repositories import users as users_repo
@@ -32,12 +32,12 @@ async def get_dashboard_counts(
     
     # Get user count
     user_query = select(func.count()).select_from(User)
-    if user_role != Role.SYSTEM_ADMIN and company_guid:
+    if user_role != UserRole.SYSTEM_ADMIN and company_guid:
         user_query = user_query.where(User.company_guid == UUID(company_guid))
     result["users"] = await db.scalar(user_query) or 0
     
     # Get company count (for system admins only)
-    if user_role == Role.SYSTEM_ADMIN:
+    if user_role == UserRole.SYSTEM_ADMIN:
         company_query = select(func.count()).select_from(Company)
         result["companies"] = await db.scalar(company_query) or 0
     else:
@@ -50,7 +50,7 @@ async def get_dashboard_counts(
     result["workstations"] = 0
     
     # For company admins and system admins, try to get the actual counts from company record
-    if user_role in [Role.COMPANY_ADMIN, Role.SYSTEM_ADMIN] and company_guid:
+    if user_role in [UserRole.COMPANY_ADMIN, UserRole.SYSTEM_ADMIN] and company_guid:
         try:
             company = await companies_repo.get_company_by_guid(db, UUID(company_guid))
             if company:
@@ -112,7 +112,7 @@ async def get_company_info(
             print(f"Error getting company details: {e}")
     
     # For System Admins without a company, return system info
-    if user_role == Role.SYSTEM_ADMIN:
+    if user_role == UserRole.SYSTEM_ADMIN:
         company_count = await db.scalar(select(func.count()).select_from(Company))
         user_count = await db.scalar(select(func.count()).select_from(User))
         

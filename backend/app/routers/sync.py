@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_roles, tenant_middleware
-from app.models.enums import Role
+from app.models.enums import UserRole
 from app.schemas.raconnect import (
     PieceCreate, ProjectCreate, ComponentCreate, AssemblyCreate, ArticleCreate, SyncResponse
 )
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/sync", tags=["sync"])
 @router.post(
     "/pieces", 
     response_model=SyncResponse, 
-    dependencies=[Depends(require_roles(Role.COMPANY_ADMIN, Role.INTEGRATION))]
+    dependencies=[Depends(require_roles(UserRole.COMPANY_ADMIN, UserRole.INTEGRATION))]
 )
 async def sync_pieces(
     pieces: List[PieceCreate] = Body(..., max_length=MAX_SYNC_CHUNK_SIZE),
@@ -61,7 +61,7 @@ async def sync_pieces(
 @router.post(
     "/projects", 
     response_model=SyncResponse, 
-    dependencies=[Depends(require_roles(Role.COMPANY_ADMIN, Role.INTEGRATION))]
+    dependencies=[Depends(require_roles(UserRole.COMPANY_ADMIN, UserRole.INTEGRATION))]
 )
 async def sync_projects(
     projects: List[ProjectCreate] = Body(..., max_length=MAX_SYNC_CHUNK_SIZE),
@@ -101,7 +101,7 @@ async def sync_projects(
 @router.post(
     "/components", 
     response_model=SyncResponse, 
-    dependencies=[Depends(require_roles(Role.COMPANY_ADMIN, Role.INTEGRATION))]
+    dependencies=[Depends(require_roles(UserRole.COMPANY_ADMIN, UserRole.INTEGRATION))]
 )
 async def sync_components(
     components: List[ComponentCreate] = Body(..., max_length=MAX_SYNC_CHUNK_SIZE),
@@ -141,7 +141,7 @@ async def sync_components(
 @router.post(
     "/assemblies", 
     response_model=SyncResponse, 
-    dependencies=[Depends(require_roles(Role.COMPANY_ADMIN, Role.INTEGRATION))]
+    dependencies=[Depends(require_roles(UserRole.COMPANY_ADMIN, UserRole.INTEGRATION))]
 )
 async def sync_assemblies(
     assemblies: List[AssemblyCreate] = Body(..., max_length=MAX_SYNC_CHUNK_SIZE),
@@ -181,7 +181,7 @@ async def sync_assemblies(
 @router.post(
     "/articles", 
     response_model=SyncResponse, 
-    dependencies=[Depends(require_roles(Role.COMPANY_ADMIN, Role.INTEGRATION))]
+    dependencies=[Depends(require_roles(UserRole.COMPANY_ADMIN, UserRole.INTEGRATION))]
 )
 async def sync_articles(
     articles: List[ArticleCreate] = Body(..., max_length=MAX_SYNC_CHUNK_SIZE),

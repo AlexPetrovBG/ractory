@@ -3,7 +3,7 @@ from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.database import Base
-from app.models.enums import Role
+from app.models.enums import UserRole
 
 class User(Base):
     """User model for authentication and authorization."""

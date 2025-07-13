@@ -5,7 +5,7 @@ from uuid import UUID
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_roles, tenant_middleware
-from app.models.enums import Role
+from app.models.enums import UserRole
 from app.repositories import users as users_repo
 
 # Router setup
@@ -31,14 +31,14 @@ async def list_users(
     user_role = current_user["role"]
     
     # Only Company Admins and System Admins can list all users
-    if user_role not in [Role.COMPANY_ADMIN, Role.SYSTEM_ADMIN]:
+    if user_role not in [UserRole.COMPANY_ADMIN, UserRole.SYSTEM_ADMIN]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to list users"
         )
     
     # System admins can see all users, others only see their company
-    if user_role == Role.SYSTEM_ADMIN:
+    if user_role == UserRole.SYSTEM_ADMIN:
         users, total = await users_repo.get_users(db, None, page, size, role)
     else:
         users, total = await users_repo.get_users(db, UUID(company_guid), page, size, role)
@@ -74,8 +74,8 @@ async def get_user(
     # Check permissions - allow only if it's the user's own profile
     # or if they are an admin of the same company or a system admin
     if (current_user_guid != str(user_guid) and 
-        (user_role != Role.SYSTEM_ADMIN and 
-         (user_role != Role.COMPANY_ADMIN or str(user["company_guid"]) != company_guid))):
+        (user_role != UserRole.SYSTEM_ADMIN and 
+         (user_role != UserRole.COMPANY_ADMIN or str(user["company_guid"]) != company_guid))):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to view this user"
@@ -99,7 +99,7 @@ async def create_user(
     user_role = current_user["role"]
     
     # Check permissions
-    if user_role not in [Role.COMPANY_ADMIN, Role.SYSTEM_ADMIN]:
+    if user_role not in [UserRole.COMPANY_ADMIN, UserRole.SYSTEM_ADMIN]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to create users"
@@ -109,7 +109,7 @@ async def create_user(
     target_company_guid = user_data.get("company_guid", company_guid)
     
     # Company admins can only create users in their own company
-    if user_role == Role.COMPANY_ADMIN and target_company_guid != company_guid:
+    if user_role == UserRole.COMPANY_ADMIN and target_company_guid != company_guid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Company admins can only create users in their own company"
@@ -157,19 +157,19 @@ async def update_user(
     is_same_company = str(user["company_guid"]) == company_guid
     
     # Regular users can only update themselves and not change role or company
-    if is_self_update and user_role not in [Role.COMPANY_ADMIN, Role.SYSTEM_ADMIN]:
+    if is_self_update and user_role not in [UserRole.COMPANY_ADMIN, UserRole.SYSTEM_ADMIN]:
         # Remove protected fields
         for field in ["role", "company_guid", "is_active"]:
             if field in user_data:
                 del user_data[field]
     # Company admins can update users in their company
-    elif user_role == Role.COMPANY_ADMIN and not is_same_company:
+    elif user_role == UserRole.COMPANY_ADMIN and not is_same_company:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to update this user"
         )
     # If not self, company admin of same company, or system admin, reject
-    elif not is_self_update and user_role != Role.SYSTEM_ADMIN and (user_role != Role.COMPANY_ADMIN or not is_same_company):
+    elif not is_self_update and user_role != UserRole.SYSTEM_ADMIN and (user_role != UserRole.COMPANY_ADMIN or not is_same_company):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to update this user"
