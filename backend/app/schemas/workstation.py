@@ -4,13 +4,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 
-
-class WorkstationType(str, Enum):
-    MACHINE = 'Machine'
-    ASSEMBLY = 'Assembly'
-    CONTROL = 'Control'
-    LOGISTICS = 'Logistics'
-    SUPPLY = 'Supply'
+from ..models.enums import WorkstationType
 
 
 class WorkstationBase(BaseModel):
