@@ -114,12 +114,12 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install -r src/ractory/backend/requirements.txt
+        run: pip install -r backend/requirements.txt
 
       - name: Lint with ruff
         run: |
           pip install ruff
-          ruff check --output-format=github src/ractory/backend/
+          ruff check --output-format=github backend/
 
       - name: Install Test Dependencies
         run: |
@@ -127,7 +127,7 @@ jobs:
           pip install httpx  # for API testing
 
       - name: Run pytest
-        working-directory: src/ractory/backend
+        working-directory: backend
         run: |
           export PYTHONPATH=$(pwd)
           pytest
@@ -141,7 +141,7 @@ jobs:
       - name: Build and push production API image
         uses: docker/build-push-action@v4
         with:
-          context: ./src/ractory/backend
+          context: ./backend
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:latest

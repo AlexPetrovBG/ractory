@@ -270,7 +270,8 @@ async def run_sync_tests(
     company_a_api_key: str,
     company_b_api_key: str,
     company_a_guid: str,
-    company_b_guid: str
+    company_b_guid: str,
+    entity_type: str
 ):
     """
     Test sync endpoints which use API keys.
@@ -368,10 +369,11 @@ async def main():
             
         print("\n=== Testing Sync Endpoint Isolation ===")
         # Test sync endpoints (which use API keys)
-        await run_sync_tests(
-            session, company_a_api_key, company_b_api_key,
-            company_a_guid, company_b_guid
-        )
+        for entity in ["projects", "components", "assemblies", "pieces", "articles"]:
+            await run_sync_tests(
+                session, company_a_api_key, company_b_api_key,
+                company_a_guid, company_b_guid, entity
+            )
         
         print("\nTests completed!")
 
