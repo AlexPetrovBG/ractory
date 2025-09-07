@@ -30,8 +30,7 @@ class TimestampMixin:
 
 # Session dependency
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    # Note: async_session should be defined elsewhere in your app initialization
-    # For now, we'll import it from where it's likely defined
-    from app.core.database import async_session
-    async with async_session() as session:
+    # Import async session factory from core.database
+    from app.core.database import async_session_factory
+    async with async_session_factory() as session:
         yield session 

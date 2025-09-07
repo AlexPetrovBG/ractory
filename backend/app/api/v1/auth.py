@@ -12,7 +12,8 @@ from app.services.auth_service import AuthService
 from app.utils.security import decode_token
 from app.models.enums import UserRole
 from app.core.rbac import require_system_admin
-from app.core.deps import get_current_user, CurrentUser, get_session, get_db_user
+from app.core.deps import get_current_user, CurrentUser
+from app.models.base import get_session
 from app.models.user import User
 from app.models.workstation import Workstation
 
@@ -172,26 +173,21 @@ async def get_current_user_info(
     Get information about the current authenticated user.
     """
     # For API key authentication
-    if current_user.extras.get("auth_type") == "api_key":
+    if current_user.get("token_data", {}).get("auth_type") == "api_key":
         return {
-            "guid": current_user.user_id,
+            "guid": current_user["guid"],
             "email": None,  # API keys don't have associated email
-            "role": current_user.role,
-            "company_guid": current_user.tenant,
+            "role": current_user["role"],
+            "company_guid": current_user["company_guid"],
             "auth_type": "api_key",
-            "scopes": current_user.extras.get("scopes", "")
+            "scopes": current_user.get("scopes", "")
         }
     
-    # For regular user authentication, get user from database
-    result = await session.execute(
-        select(User).where(User.guid == current_user.user_id)
-    )
-    db_user = result.scalars().first()
-    
+    # For regular user authentication, return user info from current_user dict
     return {
-        "guid": current_user.user_id,
-        "email": db_user.email if db_user else None,
-        "role": current_user.role,
-        "company_guid": current_user.tenant,
+        "guid": current_user["guid"],
+        "email": current_user["email"],
+        "role": current_user["role"],
+        "company_guid": current_user["company_guid"],
         "auth_type": "jwt"
     } 
