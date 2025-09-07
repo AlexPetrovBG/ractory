@@ -154,4 +154,14 @@ async def verify_workstation(
             detail="Operator not authorized for this workstation",
         )
     
-    return current_user 
+    return current_user
+
+# Added: Provide a tenant-aware session for RBAC and other dependencies
+async def get_tenant_session(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AsyncSession:
+    tenant_id = current_user.get("company_guid")
+    if tenant_id:
+        await set_tenant_for_session(db, tenant_id)
+    return db 
