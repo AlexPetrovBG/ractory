@@ -34,7 +34,7 @@ async def list_projects(
     """
     # Validate company access if company_guid parameter is provided
     if company_guid:
-        await validate_company_access(request, company_guid, current_user.tenant, current_user.role)
+        await validate_company_access(request, company_guid, current_user["company_guid"], current_user["role"])
     
     # Create base query
     query = select(Project)
@@ -47,7 +47,7 @@ async def list_projects(
         # If no specific company_guid is given in the request,
         # then apply the standard tenant filtering (which allows SystemAdmin to see all
         # or regular users to see their own company's projects).
-        query = add_tenant_filter(query, current_user.tenant, current_user.role)
+        query = add_tenant_filter(query, current_user["company_guid"], current_user["role"])
     
     # Add filter by code if provided
     if code:
@@ -58,7 +58,7 @@ async def list_projects(
         query = query.filter(Project.code.ilike(f"%{search}%"))
     
     # Add explicit tenant filtering as defense-in-depth
-    # query = add_tenant_filter(query, current_user.tenant, current_user.role) # This line is now handled by the conditional logic above
+    # query = add_tenant_filter(query, current_user["company_guid"], current_user["role"]) # This line is now handled by the conditional logic above
     
     # Add filter for active projects if include_inactive is False
     if not include_inactive:
@@ -83,7 +83,7 @@ async def get_project(
     stmt = select(Project).where(Project.guid == project_guid)
     
     # Add explicit tenant filtering as defense-in-depth
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     
     # PATCH: Only filter for active if include_inactive is False
     if not include_inactive:
@@ -133,7 +133,7 @@ async def soft_delete_project(
     """
     # Check project exists and belongs to tenant
     stmt = select(Project).where(Project.guid == project_guid)
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     result = await session.execute(stmt)
     project = result.scalar_one_or_none()
     if not project:
@@ -154,7 +154,7 @@ async def restore_project(
     - Returns 204 No Content on success.
     """
     stmt = select(Project).where(Project.guid == project_guid)
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     result = await session.execute(stmt)
     project = result.scalar_one_or_none()
     if not project:

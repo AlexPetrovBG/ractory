@@ -20,7 +20,7 @@ def require_roles(*allowed_roles: str) -> Callable:
         @app.get("/admin-only", dependencies=[Depends(require_roles(UserRole.SYSTEM_ADMIN))])
     """
     async def _require_roles(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
-        if current_user.role not in allowed_roles:
+        if current_user["role"] not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Insufficient permissions. Required one of: {', '.join(allowed_roles)}"
@@ -53,7 +53,7 @@ async def require_api_key(current_user: CurrentUser = Depends(get_current_user))
     Raises:
         HTTPException: 403 if not authenticated via API key
     """
-    if current_user.extras.get("auth_type") != "api_key":
+    if current_user.get("auth_type") != "api_key":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This endpoint requires API key authentication"
@@ -76,12 +76,12 @@ def require_scopes(*required_scopes: str) -> Callable:
     """
     async def _require_scopes(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
         # SystemAdmin bypasses scope checks
-        if current_user.role == UserRole.SYSTEM_ADMIN:
+        if current_user["role"] == UserRole.SYSTEM_ADMIN:
             return current_user
             
         # For API key auth, check scopes
-        if current_user.extras.get("auth_type") == "api_key":
-            user_scopes = current_user.extras.get("scopes", "").split(",")
+        if current_user.get("auth_type") == "api_key":
+            user_scopes = current_user.get("scopes", "").split(",")
             
             # Check if any required scope is present
             if not any(scope.strip() in required_scopes for scope in user_scopes if scope.strip()):
@@ -112,11 +112,11 @@ async def set_tenant_context(
         Session with tenant context set
     """
     # For SystemAdmin, bypass RLS
-    if current_user.role == UserRole.SYSTEM_ADMIN:
+    if current_user["role"] == UserRole.SYSTEM_ADMIN:
         await session.execute(text("SET app.bypass_rls = true"))
     else:
         # For other roles, set tenant context
-        await session.execute(text(f"SET app.tenant = '{current_user.tenant}'"))
+        await session.execute(text(f"SET app.tenant = '{current_user['company_guid']}'"))
     
     return session
 
@@ -137,11 +137,11 @@ def scope_guard(resource_company_guid_field: str):
         resource: dict = Depends()
     ):
         # SystemAdmin can access all resources
-        if current_user.role == UserRole.SYSTEM_ADMIN:
+        if current_user["role"] == UserRole.SYSTEM_ADMIN:
             return resource
             
         # For other users, ensure resource.company_guid matches user's tenant
-        if resource_company_guid_field not in resource or resource[resource_company_guid_field] != current_user.tenant:
+        if resource_company_guid_field not in resource or resource[resource_company_guid_field] != current_user["company_guid"]:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Resource not found"

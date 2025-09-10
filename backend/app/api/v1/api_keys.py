@@ -37,13 +37,13 @@ async def create_api_key(
     If no key is provided, a random one will be generated.
     """
     # Use provided company_guid for SystemAdmin or default to current user's company
-    if current_user.role == UserRole.SYSTEM_ADMIN and api_key.company_guid:
+    if current_user["role"] == UserRole.SYSTEM_ADMIN and api_key.company_guid:
         company_guid = api_key.company_guid
     else:
-        company_guid = uuid.UUID(current_user.tenant)
+        company_guid = uuid.UUID(current_user["company_guid"])
     
     # Verify company exists if SystemAdmin is creating for another company
-    if current_user.role == UserRole.SYSTEM_ADMIN and str(company_guid) != current_user.tenant:
+    if current_user["role"] == UserRole.SYSTEM_ADMIN and str(company_guid) != current_user["company_guid"]:
         from sqlalchemy import select
         from app.models.company import Company
         
@@ -96,7 +96,7 @@ async def get_api_keys(
     Only CompanyAdmin and SystemAdmin can view API keys.
     Note that the actual key values are not returned, only metadata.
     """
-    company_guid = uuid.UUID(current_user.tenant)
+    company_guid = uuid.UUID(current_user["company_guid"])
     
     try:
         api_keys = await ApiKeyService.get_api_keys_for_company(
@@ -132,7 +132,7 @@ async def get_api_key(
             )
             
         # ADD THIS: Explicit company check for non-SystemAdmins
-        if current_user.role != UserRole.SYSTEM_ADMIN and str(api_key.company_guid) != str(current_user.tenant):
+        if current_user["role"] != UserRole.SYSTEM_ADMIN and str(api_key.company_guid) != str(current_user["company_guid"]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to access this API key."
@@ -171,7 +171,7 @@ async def update_api_key(
             )
         
         # ADD THIS: Explicit company check for non-SystemAdmins
-        if current_user.role != UserRole.SYSTEM_ADMIN and str(existing_key.company_guid) != str(current_user.tenant):
+        if current_user["role"] != UserRole.SYSTEM_ADMIN and str(existing_key.company_guid) != str(current_user["company_guid"]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to update this API key."
@@ -218,7 +218,7 @@ async def delete_api_key(
             )
         
         # ADD THIS: Explicit company check for non-SystemAdmins
-        if current_user.role != UserRole.SYSTEM_ADMIN and str(existing_key.company_guid) != str(current_user.tenant):
+        if current_user["role"] != UserRole.SYSTEM_ADMIN and str(existing_key.company_guid) != str(current_user["company_guid"]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to delete this API key."

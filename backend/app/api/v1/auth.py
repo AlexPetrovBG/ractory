@@ -158,9 +158,9 @@ async def protected_route(current_user: CurrentUser = Depends(get_current_user))
     """
     return {
         "message": "You have access to this protected route",
-        "user_id": current_user.user_id,
-        "role": current_user.role,
-        "tenant": current_user.tenant
+        "user_id": current_user["guid"],
+        "role": current_user["role"],
+        "tenant": current_user["company_guid"]
     }
 
 @router.get("/me")
@@ -172,26 +172,21 @@ async def get_current_user_info(
     Get information about the current authenticated user.
     """
     # For API key authentication
-    if current_user.extras.get("auth_type") == "api_key":
+    if current_user.get("token_data", {}).get("auth_type") == "api_key":
         return {
-            "guid": current_user.user_id,
+            "guid": current_user["guid"],
             "email": None,  # API keys don't have associated email
-            "role": current_user.role,
-            "company_guid": current_user.tenant,
+            "role": current_user["role"],
+            "company_guid": current_user["company_guid"],
             "auth_type": "api_key",
-            "scopes": current_user.extras.get("scopes", "")
+            "scopes": current_user.get("scopes", "")
         }
     
-    # For regular user authentication, get user from database
-    result = await session.execute(
-        select(User).where(User.guid == current_user.user_id)
-    )
-    db_user = result.scalars().first()
-    
+    # For regular user authentication, return user info from current_user dict
     return {
-        "guid": current_user.user_id,
-        "email": db_user.email if db_user else None,
-        "role": current_user.role,
-        "company_guid": current_user.tenant,
+        "guid": current_user["guid"],
+        "email": current_user["email"],
+        "role": current_user["role"],
+        "company_guid": current_user["company_guid"],
         "auth_type": "jwt"
     } 

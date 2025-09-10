@@ -4,8 +4,9 @@ from sqlalchemy.dialects.postgresql import UUID
 import sqlalchemy as sa
 
 from app.core.database import Base
+from .base import TimestampMixin
 
-class Assembly(Base):
+class Assembly(Base, TimestampMixin):
     """Assembly model representing data synced from RaWorkshop."""
     __tablename__ = "assemblies"
 

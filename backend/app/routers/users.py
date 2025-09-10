@@ -106,7 +106,7 @@ async def create_user(
         )
     
     # Set the company GUID for the new user
-    target_company_guid = user_data.get("company_guid", company_guid)
+    target_company_guid = user_data.get("company_guid") or company_guid
     
     # Company admins can only create users in their own company
     if user_role == UserRole.COMPANY_ADMIN and target_company_guid != company_guid:
@@ -114,6 +114,9 @@ async def create_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Company admins can only create users in their own company"
         )
+    
+    # Ensure the company_guid is set in user_data
+    user_data["company_guid"] = target_company_guid
     
     # Create user
     try:
@@ -176,12 +179,18 @@ async def update_user(
         )
     
     # Update user
-    updated_user = await users_repo.update_user(db, user_guid, user_data)
-    
-    if not updated_user:
+    try:
+        updated_user = await users_repo.update_user(db, user_guid, user_data)
+        
+        if not updated_user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error updating user"
+            )
+        
+        return updated_user
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error updating user"
-        )
-    
-    return updated_user 
+            detail=f"Error updating user: {str(e)}"
+        ) 

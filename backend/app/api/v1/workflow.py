@@ -49,18 +49,18 @@ async def create_workflow_entry(
         target_company_guid: uuid.UUID
         if workflow.company_guid:
             # If company_guid is provided in payload, validate it
-            await validate_company_access(request, workflow.company_guid, current_user.tenant, current_user.role)
+            await validate_company_access(request, workflow.company_guid, current_user["company_guid"], current_user["role"])
             target_company_guid = workflow.company_guid
         else:
             # Otherwise, use the tenant from the current user's token
-            target_company_guid = uuid.UUID(current_user.tenant)
+            target_company_guid = uuid.UUID(current_user["company_guid"])
         
         # Create the workflow entry
         entry = await WorkflowService.create_workflow_entry(
             action_type=workflow.action_type,
             company_guid=target_company_guid,
             workstation_guid=workflow.workstation_guid,
-            user_guid=workflow.user_guid or current_user.user_id,  # Use the current user if not specified
+            user_guid=workflow.user_guid or current_user["guid"],  # Use the current user if not specified
             api_key_guid=workflow.api_key_guid,
             action_value=workflow.action_value,
             session=session
@@ -100,7 +100,7 @@ async def get_workflow_entries(
     Results are paginated and sorted by creation date (newest first).
     """
     try:
-        company_guid = uuid.UUID(current_user.tenant)
+        company_guid = uuid.UUID(current_user["company_guid"])
         
         entries = await WorkflowService.get_workflow_entries(
             company_guid=company_guid,
@@ -141,7 +141,7 @@ async def get_workflow_statistics(
     optionally filtered by date range.
     """
     try:
-        company_guid = uuid.UUID(current_user.tenant)
+        company_guid = uuid.UUID(current_user["company_guid"])
         
         stats = await WorkflowService.get_workflow_statistics(
             company_guid=company_guid,
@@ -184,7 +184,7 @@ async def get_workflow_entry(
             )
         
         # Check company access (RLS should handle this, but double-check)
-        if entry.company_guid != uuid.UUID(current_user.tenant) and current_user.role != UserRole.SYSTEM_ADMIN:
+        if entry.company_guid != uuid.UUID(current_user["company_guid"]) and current_user["role"] != UserRole.SYSTEM_ADMIN:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to access this workflow entry"

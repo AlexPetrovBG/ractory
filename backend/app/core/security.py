@@ -11,42 +11,8 @@ from sqlalchemy import select
 # Re-export hash_password from utils for consistency
 hash_password = utils_hash_password
 
-async def get_current_active_user(
-    current_user: CurrentUser = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)
-) -> User:
-    """
-    Get the current active user from the database.
-    
-    Args:
-        current_user: Current user information from JWT token
-        session: Database session
-        
-    Returns:
-        User database model
-        
-    Raises:
-        HTTPException: 401 if user is not active
-    """
-    # Query user from database
-    result = await session.execute(
-        select(User).where(User.guid == current_user.user_id)
-    )
-    user = result.scalars().first()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found in database"
-        )
-    
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Inactive user"
-        )
-    
-    return user
+# get_current_active_user function removed - use get_current_user instead
+# which already provides the same functionality with better consistency
 
 class RoleChecker:
     """

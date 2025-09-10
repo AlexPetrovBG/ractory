@@ -4,8 +4,9 @@ from sqlalchemy.dialects.postgresql import UUID
 import sqlalchemy as sa
 
 from app.core.database import Base
+from .base import TimestampMixin
 
-class Article(Base):
+class Article(Base, TimestampMixin):
     """Article model representing data synced from RaWorkshop."""
     __tablename__ = "articles"
 

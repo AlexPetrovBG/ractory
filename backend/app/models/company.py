@@ -1,8 +1,9 @@
 import uuid
 from sqlalchemy import Column, String, Boolean, DateTime, func, Integer
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
-from app.core.database import Base
+from .base import Base
 
 class Company(Base):
     """Company model representing an organization in the multi-tenant system."""
@@ -17,9 +18,15 @@ class Company(Base):
     user_count = Column(Integer, nullable=False, default=0)
     projects_count = Column(Integer, nullable=False, default=0)
     workstations_count = Column(Integer, nullable=False, default=0)
+    company_index = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Define relationships
+    workstations = relationship("Workstation", back_populates="company")
+    workflows = relationship("Workflow", back_populates="company")
+    api_keys = relationship("ApiKey", back_populates="company")
 
     def __repr__(self):
         return f"<Company {self.name}>"
@@ -37,6 +44,7 @@ class Company(Base):
             "user_count": self.user_count,
             "projects_count": self.projects_count,
             "workstations_count": self.workstations_count,
+            "company_index": self.company_index,
             "is_active": self.is_active,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

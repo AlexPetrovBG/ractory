@@ -42,12 +42,12 @@ async def sync_projects(
         await validate_company_access(
             request, 
             project.company_guid, 
-            current_user.tenant, 
-            current_user.role
+            current_user["company_guid"], 
+            current_user["role"]
         )
     
     # Perform bulk upsert using service
-    result = await SyncService.sync_projects(data.projects, current_user.tenant, session)
+    result = await SyncService.sync_projects(data.projects, current_user["company_guid"], session)
     
     return SyncResult(**result)
 
@@ -68,12 +68,12 @@ async def sync_components(
         await validate_company_access(
             request, 
             component.company_guid, 
-            current_user.tenant, 
-            current_user.role
+            current_user["company_guid"], 
+            current_user["role"]
         )
     
     # Perform bulk upsert using service
-    result = await SyncService.sync_components(data.components, current_user.tenant, session)
+    result = await SyncService.sync_components(data.components, current_user["company_guid"], session)
     
     return SyncResult(**result)
 
@@ -94,12 +94,12 @@ async def sync_assemblies(
         await validate_company_access(
             request, 
             assembly.company_guid, 
-            current_user.tenant, 
-            current_user.role
+            current_user["company_guid"], 
+            current_user["role"]
         )
     
     # Perform bulk upsert using service
-    result = await SyncService.sync_assemblies(data.assemblies, current_user.tenant, session)
+    result = await SyncService.sync_assemblies(data.assemblies, current_user["company_guid"], session)
     
     return SyncResult(**result)
 
@@ -128,12 +128,12 @@ async def sync_pieces(
         await validate_company_access(
             request, 
             piece.company_guid, 
-            current_user.tenant, 
-            current_user.role
+            current_user["company_guid"], 
+            current_user["role"]
         )
     
     # Perform bulk upsert using service
-    result = await SyncService.sync_pieces(data.pieces, current_user.tenant, session)
+    result = await SyncService.sync_pieces(data.pieces, current_user["company_guid"], session)
     
     return SyncResult(**result)
 
@@ -154,11 +154,11 @@ async def sync_articles(
         await validate_company_access(
             request, 
             article.company_guid, 
-            current_user.tenant, 
-            current_user.role
+            current_user["company_guid"], 
+            current_user["role"]
         )
     
     # Perform bulk upsert using service
-    result = await SyncService.sync_articles(data.articles, current_user.tenant, session)
+    result = await SyncService.sync_articles(data.articles, current_user["company_guid"], session)
     
     return SyncResult(**result) 

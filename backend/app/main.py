@@ -23,9 +23,34 @@ app.add_middleware(
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Convert errors to JSON-serializable format
+    errors = []
+    for error in exc.errors():
+        error_dict = {
+            "type": error.get("type"),
+            "loc": error.get("loc"),
+            "msg": str(error.get("msg", "")),
+            "input": error.get("input")
+        }
+        # Handle the ctx field which might contain non-serializable objects
+        if "ctx" in error:
+            ctx = error["ctx"]
+            if isinstance(ctx, dict):
+                # Convert any non-serializable objects in ctx to strings
+                serializable_ctx = {}
+                for key, value in ctx.items():
+                    if hasattr(value, '__dict__'):
+                        serializable_ctx[key] = str(value)
+                    else:
+                        serializable_ctx[key] = value
+                error_dict["ctx"] = serializable_ctx
+            else:
+                error_dict["ctx"] = str(ctx)
+        errors.append(error_dict)
+    
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors(), "body": exc.body},
+        content={"detail": errors},
     )
 
 # Include the main API router (which includes all v1 routes including health)

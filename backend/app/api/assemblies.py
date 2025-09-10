@@ -34,11 +34,11 @@ async def list_assemblies(
     """
     # Validate company access if company_guid parameter is provided
     if company_guid:
-        await validate_company_access(request, company_guid, current_user.tenant, current_user.role)
+        await validate_company_access(request, company_guid, current_user["company_guid"], current_user["role"])
 
     # Determine the tenant_id to use for filtering based on role and provided company_guid
-    filter_tenant_id = str(company_guid) if company_guid and current_user.role == UserRole.SYSTEM_ADMIN else current_user.tenant
-    effective_tenant_check_id = filter_tenant_id if current_user.role == UserRole.SYSTEM_ADMIN else current_user.tenant
+    filter_tenant_id = str(company_guid) if company_guid and current_user["role"] == UserRole.SYSTEM_ADMIN else current_user["company_guid"]
+    effective_tenant_check_id = filter_tenant_id if current_user["role"] == UserRole.SYSTEM_ADMIN else current_user["company_guid"]
 
     # Create base query
     query = select(Assembly)
@@ -46,7 +46,7 @@ async def list_assemblies(
     # Validate and apply project_guid filter
     if project_guid:
         project_stmt = select(Project).where(Project.guid == project_guid)
-        project_stmt = add_tenant_filter(project_stmt, effective_tenant_check_id, current_user.role)
+        project_stmt = add_tenant_filter(project_stmt, effective_tenant_check_id, current_user["role"])
         project_result = await session.execute(project_stmt)
         project = project_result.scalar_one_or_none()
         if not project:
@@ -56,7 +56,7 @@ async def list_assemblies(
     # Validate and apply component_guid filter
     if component_guid:
         component_stmt = select(Component).where(Component.guid == component_guid)
-        component_stmt = add_tenant_filter(component_stmt, effective_tenant_check_id, current_user.role)
+        component_stmt = add_tenant_filter(component_stmt, effective_tenant_check_id, current_user["role"])
         component_result = await session.execute(component_stmt)
         component = component_result.scalar_one_or_none()
         if not component:
@@ -66,7 +66,7 @@ async def list_assemblies(
         query = query.where(Assembly.component_guid == component_guid)
     
     # Add tenant filtering for assemblies themselves
-    query = add_tenant_filter(query, filter_tenant_id, current_user.role)
+    query = add_tenant_filter(query, filter_tenant_id, current_user["role"])
     
     # Add is_active filter
     if not include_inactive:
@@ -91,7 +91,7 @@ async def get_assembly(
     stmt = select(Assembly).where(Assembly.guid == assembly_guid)
     
     # Add explicit tenant filtering as defense-in-depth
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     
     # PATCH: Only filter for active if include_inactive is False
     if not include_inactive:
@@ -104,7 +104,7 @@ async def get_assembly(
     if not assembly:
         raise HTTPException(status_code=404, detail="Assembly not found")
 
-    if current_user.role != UserRole.SYSTEM_ADMIN and str(assembly.company_guid) != str(current_user.tenant):
+    if current_user["role"] != UserRole.SYSTEM_ADMIN and str(assembly.company_guid) != str(current_user["company_guid"]):
         raise HTTPException(status_code=403, detail="Access to this assembly is forbidden.")
     
     piece_count = 0
@@ -148,7 +148,7 @@ async def soft_delete_assembly(
     - Returns 204 No Content on success.
     """
     stmt = select(Assembly).where(Assembly.guid == assembly_guid)
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     result = await session.execute(stmt)
     assembly = result.scalar_one_or_none()
     if not assembly:
@@ -169,7 +169,7 @@ async def restore_assembly(
     - Returns 204 No Content on success.
     """
     stmt = select(Assembly).where(Assembly.guid == assembly_guid)
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     result = await session.execute(stmt)
     assembly = result.scalar_one_or_none()
     if not assembly:

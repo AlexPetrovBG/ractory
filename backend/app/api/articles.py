@@ -36,10 +36,10 @@ async def list_articles(
     """
     # Validate company access if company_guid parameter is provided
     if company_guid:
-        await validate_company_access(request, company_guid, current_user.tenant, current_user.role)
+        await validate_company_access(request, company_guid, current_user["company_guid"], current_user["role"])
 
     # Determine the tenant_id to use for filtering based on role and provided company_guid
-    filter_tenant_id = str(company_guid) if company_guid and current_user.role == UserRole.SYSTEM_ADMIN else current_user.tenant
+    filter_tenant_id = str(company_guid) if company_guid and current_user["role"] == UserRole.SYSTEM_ADMIN else current_user["company_guid"]
 
     # Create base query
     query = select(Article)
@@ -47,9 +47,9 @@ async def list_articles(
     # Validate and apply project_guid filter
     if project_guid:
         project_stmt = select(Project).where(Project.guid == project_guid)
-        # SystemAdmin uses filter_tenant_id which could be different from current_user.tenant
-        # Non-SystemAdmins implicitly use current_user.tenant
-        project_stmt = add_tenant_filter(project_stmt, filter_tenant_id if current_user.role == UserRole.SYSTEM_ADMIN else current_user.tenant, current_user.role)
+        # SystemAdmin uses filter_tenant_id which could be different from current_user["company_guid"]
+        # Non-SystemAdmins implicitly use current_user["company_guid"]
+        project_stmt = add_tenant_filter(project_stmt, filter_tenant_id if current_user["role"] == UserRole.SYSTEM_ADMIN else current_user["company_guid"], current_user["role"])
         project_result = await session.execute(project_stmt)
         project = project_result.scalar_one_or_none()
         if not project:
@@ -59,7 +59,7 @@ async def list_articles(
     # Validate and apply component_guid filter
     if component_guid:
         component_stmt = select(Component).where(Component.guid == component_guid)
-        component_stmt = add_tenant_filter(component_stmt, filter_tenant_id if current_user.role == UserRole.SYSTEM_ADMIN else current_user.tenant, current_user.role)
+        component_stmt = add_tenant_filter(component_stmt, filter_tenant_id if current_user["role"] == UserRole.SYSTEM_ADMIN else current_user["company_guid"], current_user["role"])
         component_result = await session.execute(component_stmt)
         component = component_result.scalar_one_or_none()
         if not component:
@@ -71,7 +71,7 @@ async def list_articles(
         query = query.where(Article.component_guid == component_guid)
     
     # Add tenant filtering for articles themselves
-    query = add_tenant_filter(query, filter_tenant_id, current_user.role)
+    query = add_tenant_filter(query, filter_tenant_id, current_user["role"])
     
     # Add pagination
     query = query.limit(limit).offset(offset)
@@ -95,7 +95,7 @@ async def get_article(
     stmt = select(Article).where(Article.guid == article_guid)
     
     # Add explicit tenant filtering as defense-in-depth
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     
     # PATCH: Only filter for active if include_inactive is False
     if not include_inactive:
@@ -108,7 +108,7 @@ async def get_article(
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
 
-    if current_user.role != UserRole.SYSTEM_ADMIN and str(article.company_guid) != str(current_user.tenant):
+    if current_user["role"] != UserRole.SYSTEM_ADMIN and str(article.company_guid) != str(current_user["company_guid"]):
         raise HTTPException(status_code=403, detail="Access to this article is forbidden.")
     
     # Build response dict explicitly to avoid getattr/annotation issues
@@ -152,7 +152,7 @@ async def soft_delete_article(
     - Returns 204 No Content on success.
     """
     stmt = select(Article).where(Article.guid == article_guid)
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     result = await session.execute(stmt)
     article = result.scalar_one_or_none()
     if not article:
@@ -173,7 +173,7 @@ async def restore_article(
     - Restores only children with `deleted_at` matching the parent's original `deleted_at` (if any).
     """
     stmt = select(Article).where(Article.guid == article_guid)
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     result = await session.execute(stmt)
     article = result.scalar_one_or_none()
     if not article:

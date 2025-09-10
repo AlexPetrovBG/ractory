@@ -20,4 +20,20 @@ class WorkstationType(str, Enum):
     SUPPLY = "Supply"
 
     def __str__(self) -> str:
+        return self.value
+
+class WorkflowActionType(str, Enum):
+    """Types of workflow actions that can be performed in the system."""
+    CREATE = "Create"
+    UPDATE = "Update"
+    DELETE = "Delete"
+    SOFT_DELETE = "SoftDelete"
+    RESTORE = "Restore"
+    SYNC = "Sync"
+    IMPORT = "Import"
+    EXPORT = "Export"
+    APPROVE = "Approve"
+    REJECT = "Reject"
+
+    def __str__(self) -> str:
         return self.value 

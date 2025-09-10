@@ -4,12 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.core.security import get_current_active_user, hash_password
+from app.core.security import hash_password
 from app.core.database import get_db
 from app.models import User, Company
 from app.schemas import UserCreate, UserUpdate, UserResponse
 from app.core.security import RoleChecker
 from app.utils.role_utils import can_manage_role
+from app.core.deps import get_current_user, CurrentUser
 
 router = APIRouter()
 
@@ -22,7 +23,7 @@ allow_system_admin = RoleChecker(["SystemAdmin"])
 async def create_user(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Create a new user.
@@ -30,12 +31,21 @@ async def create_user(
     - CompanyAdmin can only create users with lower roles (ProjectManager, Operator)
     - Other roles cannot create users
     """
+    print(f"DEBUG: create_user called with user_data.company_guid={user_data.company_guid}")
+    print(f"DEBUG: current_user company_guid={current_user['company_guid']}")
+    
+    # Set the company GUID for the new user
+    target_company_guid = user_data.company_guid or current_user["company_guid"]
+    
     # DEBUG: Log the incoming company_guid and type
-    print(f"DEBUG: Attempting to create user for company_guid={user_data.company_guid} (type={type(user_data.company_guid)})")
-    print(f"DEBUG: Current user tenant: {current_user.tenant}, role: {current_user.role}")
-    print(f"DEBUG: Current user company_guid: {current_user.company_guid}")
+    print(f"DEBUG: Attempting to create user for company_guid={target_company_guid} (type={type(target_company_guid)})")
+    print(f"DEBUG: Current user tenant: {current_user['company_guid']}, role: {current_user['role']}")
+    print(f"DEBUG: Current user company_guid: {current_user['company_guid']}")
+    
     # Check if company exists and is active
-    company_result = await db.execute(select(Company).filter(Company.guid == user_data.company_guid, Company.is_active == True))
+    from uuid import UUID
+    target_company_uuid = UUID(str(target_company_guid))
+    company_result = await db.execute(select(Company).filter(Company.guid == target_company_uuid, Company.is_active == True))
     company = company_result.scalars().first()
     print(f"DEBUG: Company query result: {company}")
     if not company:
@@ -54,33 +64,25 @@ async def create_user(
         )
     
     # Only SystemAdmin and CompanyAdmin can create users
-    if current_user.role not in ["SystemAdmin", "CompanyAdmin"]:
+    if current_user["role"] not in ["SystemAdmin", "CompanyAdmin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to create users"
         )
     
     # Check role creation permissions using the role hierarchy
-    if not can_manage_role(current_user.role, user_data.role):
+    if not can_manage_role(current_user["role"], user_data.role):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to create users with this role"
         )
     
     # Non-SystemAdmin can only create users in their own company
-    if current_user.role != "SystemAdmin" and user_data.company_guid != current_user.company_guid:
+    if current_user["role"] != "SystemAdmin" and str(target_company_guid) != str(current_user["company_guid"]):
+        print(f"DEBUG: Company mismatch - target_company_guid={target_company_guid}, current_user['company_guid']={current_user['company_guid']}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to create users in other companies"
-        )
-    
-    # Additional check: Ensure the company_guid matches tenant context for RLS compliance
-    # This prevents RLS policy violations at the database level
-    if current_user.role != "SystemAdmin" and str(user_data.company_guid) != str(current_user.tenant):
-        print(f"DEBUG: Tenant mismatch - user_data.company_guid={user_data.company_guid}, current_user.tenant={current_user.tenant}")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Company GUID does not match your tenant context"
         )
     
     # Create user
@@ -88,7 +90,7 @@ async def create_user(
         email=user_data.email,
         pwd_hash=hash_password(user_data.password),
         role=user_data.role,
-        company_guid=user_data.company_guid,
+        company_guid=target_company_uuid,
         is_active=True,
         pin=user_data.pin,
         name=user_data.name,
@@ -98,7 +100,7 @@ async def create_user(
     try:
         # Add and commit to database
         db.add(user)
-        print(f"DEBUG: About to commit user creation for company_guid={user_data.company_guid}")
+        print(f"DEBUG: About to commit user creation for company_guid={target_company_guid}")
         await db.commit()
         await db.refresh(user)
         print(f"DEBUG: User creation successful")
@@ -128,7 +130,7 @@ async def get_users(
     active: Optional[bool] = Query(None, description="Filter by active status"),
     company_guid: Optional[UUID] = Query(None, description="Filter by company GUID"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Get users based on filters and permissions.
@@ -139,10 +141,10 @@ async def get_users(
     query = select(User)
     
     # Handle company access based on role
-    if current_user.role != "SystemAdmin":
+    if current_user["role"] != "SystemAdmin":
         # Non-SystemAdmin users can only see their own company's users
-        query = query.filter(User.company_guid == current_user.company_guid)
-        if company_guid and company_guid != current_user.company_guid:
+        query = query.filter(User.company_guid == current_user["company_guid"])
+        if company_guid and company_guid != current_user["company_guid"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to view users from other companies"
@@ -165,7 +167,7 @@ async def get_users(
 async def get_user(
     guid: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get a specific user by GUID."""
     result = await db.execute(select(User).filter(User.guid == guid))
@@ -178,7 +180,7 @@ async def get_user(
         )
     
     # Non-system admins can only view users from their company
-    if current_user.role != "SystemAdmin" and user.company_guid != current_user.company_guid:
+    if current_user["role"] != "SystemAdmin" and user.company_guid != current_user["company_guid"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to view users from other companies"
@@ -192,7 +194,7 @@ async def update_user(
     guid: UUID,
     user_data: UserUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Update a user's information. 
@@ -210,23 +212,23 @@ async def update_user(
             detail="User not found"
         )
     
-    is_updating_self = (current_user.guid == user.guid)
+    is_updating_self = (current_user["guid"] == user.guid)
 
     # Role change attempt?
     changing_role = hasattr(user_data, 'role') and user_data.role is not None and user_data.role != user.role
 
-    if current_user.role == "SystemAdmin":
+    if current_user["role"] == "SystemAdmin":
         # SystemAdmin: Check role management logic if changing role
         if changing_role:
-            if not (can_manage_role(current_user.role, user.role) and \
-                    can_manage_role(current_user.role, user_data.role)):
+            if not (can_manage_role(current_user["role"], user.role) and \
+                    can_manage_role(current_user["role"], user_data.role)):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="SystemAdmin: Not authorized to make this role transition."
                 )
-    elif current_user.role == "CompanyAdmin":
+    elif current_user["role"] == "CompanyAdmin":
         # CompanyAdmin: Must be within the same company
-        if user.company_guid != current_user.company_guid:
+        if user.company_guid != current_user["company_guid"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="CompanyAdmin: Not authorized to update users from other companies."
@@ -238,8 +240,8 @@ async def update_user(
                     detail="CompanyAdmin: You cannot change your own role."
                 )
             # Check role management for updating another user
-            if not (can_manage_role(current_user.role, user.role) and \
-                    can_manage_role(current_user.role, user_data.role)):
+            if not (can_manage_role(current_user["role"], user.role) and \
+                    can_manage_role(current_user["role"], user_data.role)):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="CompanyAdmin: Not authorized to make this role transition for the user."
@@ -280,13 +282,13 @@ async def update_user(
     if hasattr(user_data, 'pin') and user_data.pin is not None:
         user.pin = user_data.pin
         
-    if 'name' in user_data.__dict__:
+    if hasattr(user_data, 'name') and user_data.name is not None:
         user.name = user_data.name
         
-    if 'surname' in user_data.__dict__:
+    if hasattr(user_data, 'surname') and user_data.surname is not None:
         user.surname = user_data.surname
         
-    if 'picture_path' in user_data.__dict__:
+    if hasattr(user_data, 'picture_path') and user_data.picture_path is not None:
         user.picture_path = user_data.picture_path
     
     # Commit changes
@@ -300,13 +302,13 @@ async def update_user(
 async def delete_user(
     guid: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Soft delete a user by setting is_active to False.
     Only SystemAdmin and CompanyAdmin can deactivate users.
     """
-    allow_system_or_company_admin(current_user.role)
+    allow_system_or_company_admin(current_user["role"])
     
     # Get the user to delete
     result = await db.execute(select(User).filter(User.guid == guid))
@@ -319,9 +321,9 @@ async def delete_user(
         )
     
     # Authorization checks
-    if current_user.role != "SystemAdmin":
+    if current_user["role"] != "SystemAdmin":
         # Non-SystemAdmin can only delete users in their company
-        if user.company_guid != current_user.company_guid:
+        if user.company_guid != current_user["company_guid"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to delete users from other companies"
@@ -342,7 +344,7 @@ async def delete_user(
             )
     
     # Self-deletion check
-    if user.guid == current_user.guid:
+    if user.guid == current_user["guid"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete your own account"

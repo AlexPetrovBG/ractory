@@ -75,18 +75,18 @@ class AuthService:
         """
         # Create real JWT tokens using the security utility
         access_token = create_token(
-            sub=user["user_id"],
+            subject=user["user_id"],
             tenant=user["tenant"],
             role=user["role"],
-            exp_min=15  # 15 minutes expiration
+            expires_min=15  # 15 minutes expiration
         )
         
         # Create refresh token with longer expiration
         refresh_token = create_token(
-            sub=user["user_id"],
+            subject=user["user_id"],
             tenant=user["tenant"],
             role=user["role"],
-            exp_min=10080  # 7 days in minutes
+            expires_min=10080  # 7 days in minutes
         )
         
         return {

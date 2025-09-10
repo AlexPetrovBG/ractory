@@ -38,11 +38,11 @@ async def list_pieces(
     """
     # Validate company access if company_guid parameter is provided
     if company_guid:
-        await validate_company_access(request, company_guid, current_user.tenant, current_user.role)
+        await validate_company_access(request, company_guid, current_user["company_guid"], current_user["role"])
 
     # Determine the tenant_id to use for filtering based on role and provided company_guid
-    filter_tenant_id = str(company_guid) if company_guid and current_user.role == UserRole.SYSTEM_ADMIN else current_user.tenant
-    effective_tenant_check_id = filter_tenant_id if current_user.role == UserRole.SYSTEM_ADMIN else current_user.tenant
+    filter_tenant_id = str(company_guid) if company_guid and current_user["role"] == UserRole.SYSTEM_ADMIN else current_user["company_guid"]
+    effective_tenant_check_id = filter_tenant_id if current_user["role"] == UserRole.SYSTEM_ADMIN else current_user["company_guid"]
 
     # Create base query
     query = select(Piece)
@@ -50,7 +50,7 @@ async def list_pieces(
     # Validate and apply project_guid filter
     if project_guid:
         project_stmt = select(Project).where(Project.guid == project_guid)
-        project_stmt = add_tenant_filter(project_stmt, effective_tenant_check_id, current_user.role)
+        project_stmt = add_tenant_filter(project_stmt, effective_tenant_check_id, current_user["role"])
         project_result = await session.execute(project_stmt)
         project = project_result.scalar_one_or_none()
         if not project:
@@ -60,7 +60,7 @@ async def list_pieces(
     # Validate and apply component_guid filter
     if component_guid:
         component_stmt = select(Component).where(Component.guid == component_guid)
-        component_stmt = add_tenant_filter(component_stmt, effective_tenant_check_id, current_user.role)
+        component_stmt = add_tenant_filter(component_stmt, effective_tenant_check_id, current_user["role"])
         component_result = await session.execute(component_stmt)
         component = component_result.scalar_one_or_none()
         if not component:
@@ -72,7 +72,7 @@ async def list_pieces(
     # Validate and apply assembly_guid filter
     if assembly_guid:
         assembly_stmt = select(Assembly).where(Assembly.guid == assembly_guid)
-        assembly_stmt = add_tenant_filter(assembly_stmt, effective_tenant_check_id, current_user.role)
+        assembly_stmt = add_tenant_filter(assembly_stmt, effective_tenant_check_id, current_user["role"])
         assembly_result = await session.execute(assembly_stmt)
         assembly = assembly_result.scalar_one_or_none()
         if not assembly:
@@ -84,7 +84,7 @@ async def list_pieces(
         query = query.where(Piece.assembly_guid == assembly_guid)
     
     # Add tenant filtering for pieces themselves
-    query = add_tenant_filter(query, filter_tenant_id, current_user.role)
+    query = add_tenant_filter(query, filter_tenant_id, current_user["role"])
     
     # Add pagination
     if not include_inactive:
@@ -110,7 +110,7 @@ async def get_piece(
     stmt = select(Piece).where(Piece.guid == piece_guid)
     
     # Add explicit tenant filtering as defense-in-depth
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     
     # PATCH: Only filter for active if include_inactive is False
     if not include_inactive:
@@ -123,7 +123,7 @@ async def get_piece(
     if not piece:
         raise HTTPException(status_code=404, detail="Piece not found")
 
-    if current_user.role != UserRole.SYSTEM_ADMIN and str(piece.company_guid) != str(current_user.tenant):
+    if current_user["role"] != UserRole.SYSTEM_ADMIN and str(piece.company_guid) != str(current_user["company_guid"]):
         raise HTTPException(status_code=403, detail="Access to this piece is forbidden.")
     
     # Build response dict explicitly to avoid getattr/annotation issues
@@ -172,7 +172,7 @@ async def soft_delete_piece(
     - Cascades soft delete to all active children (if any).
     """
     stmt = select(Piece).where(Piece.guid == piece_guid)
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     result = await session.execute(stmt)
     piece = result.scalar_one_or_none()
     if not piece:
@@ -193,7 +193,7 @@ async def restore_piece(
     - Restores only children with `deleted_at` matching the parent's original `deleted_at` (if any).
     """
     stmt = select(Piece).where(Piece.guid == piece_guid)
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     result = await session.execute(stmt)
     piece = result.scalar_one_or_none()
     if not piece:

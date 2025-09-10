@@ -32,9 +32,9 @@ async def list_components(
     """
     # Validate company access if company_guid parameter is provided
     if company_guid:
-        await validate_company_access(request, company_guid, current_user.tenant, current_user.role)
+        await validate_company_access(request, company_guid, current_user["company_guid"], current_user["role"])
         # If validated, this company_guid can be used for filtering if user is SystemAdmin
-        # Otherwise, filtering is implicitly by current_user.tenant via add_tenant_filter
+        # Otherwise, filtering is implicitly by current_user["company_guid"] via add_tenant_filter
 
     # Create base query
     query = select(Component)
@@ -43,7 +43,7 @@ async def list_components(
     if project_guid:
         # Before filtering by project_guid, ensure the project itself is accessible
         project_stmt = select(Project).where(Project.guid == project_guid)
-        project_stmt = add_tenant_filter(project_stmt, current_user.tenant, current_user.role)
+        project_stmt = add_tenant_filter(project_stmt, current_user["company_guid"], current_user["role"])
         project_result = await session.execute(project_stmt)
         project = project_result.scalar_one_or_none()
         if not project:
@@ -52,9 +52,9 @@ async def list_components(
     
     # Add explicit tenant filtering as defense-in-depth
     # If company_guid was provided and validated for a SystemAdmin, use that for filtering
-    # Otherwise, current_user.tenant is used (which is the default for non-SystemAdmins)
-    filter_tenant_id = str(company_guid) if company_guid and current_user.role == UserRole.SYSTEM_ADMIN else current_user.tenant
-    query = add_tenant_filter(query, filter_tenant_id, current_user.role)
+    # Otherwise, current_user["company_guid"] is used (which is the default for non-SystemAdmins)
+    filter_tenant_id = str(company_guid) if company_guid and current_user["role"] == UserRole.SYSTEM_ADMIN else current_user["company_guid"]
+    query = add_tenant_filter(query, filter_tenant_id, current_user["role"])
     
     # Add inactive filtering
     if not include_inactive:
@@ -79,7 +79,7 @@ async def get_component(
     stmt = select(Component).where(Component.guid == component_guid)
     
     # Add explicit tenant filtering as defense-in-depth
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     
     # PATCH: Only filter for active if include_inactive is False
     if not include_inactive:
@@ -95,7 +95,7 @@ async def get_component(
     if not component:
         raise HTTPException(status_code=404, detail="Component not found")
 
-    if current_user.role != UserRole.SYSTEM_ADMIN and str(component.company_guid) != str(current_user.tenant):
+    if current_user["role"] != UserRole.SYSTEM_ADMIN and str(component.company_guid) != str(current_user["company_guid"]):
         raise HTTPException(status_code=403, detail="Access to this component is forbidden.")
     
     assembly_count = 0
@@ -140,7 +140,7 @@ async def soft_delete_component(
     - Returns 204 No Content on success.
     """
     stmt = select(Component).where(Component.guid == component_guid)
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     result = await session.execute(stmt)
     component = result.scalar_one_or_none()
     if not component:
@@ -161,7 +161,7 @@ async def restore_component(
     - Returns 204 No Content on success.
     """
     stmt = select(Component).where(Component.guid == component_guid)
-    stmt = add_tenant_filter(stmt, current_user.tenant, current_user.role)
+    stmt = add_tenant_filter(stmt, current_user["company_guid"], current_user["role"])
     result = await session.execute(stmt)
     component = result.scalar_one_or_none()
     if not component:

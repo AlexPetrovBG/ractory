@@ -1,0 +1,53 @@
+ .../app/__pycache__/__init__.cpython-311.pyc |  Bin [31m129[m -> [32m0[m bytes
+ backend/app/__pycache__/main.cpython-311.pyc |  Bin [31m2890[m -> [32m0[m bytes
+ backend/app/api/articles.py                  |   22 [32m+[m[31m-[m
+ backend/app/api/assemblies.py                |   20 [32m+[m[31m-[m
+ backend/app/api/components.py                |   20 [32m+[m[31m-[m
+ backend/app/api/pieces.py                    |   22 [32m+[m[31m-[m
+ backend/app/api/v1/api_keys.py               |   14 [32m+[m[31m-[m
+ backend/app/api/v1/auth.py                   |   31 [32m+[m[31m-[m
+ backend/app/api/v1/projects.py               |   12 [32m+[m[31m-[m
+ backend/app/api/v1/sync.py                   |   30 [32m+[m[31m-[m
+ backend/app/api/v1/users.py                  |   88 [32m+[m[31m-[m
+ backend/app/api/v1/workflow.py               |   12 [32m+[m[31m-[m
+ backend/app/api/v1/workstations.py           |   41 [32m+[m[31m-[m
+ .../__pycache__/__init__.cpython-311.pyc     |  Bin [31m134[m -> [32m0[m bytes
+ .../core/__pycache__/config.cpython-311.pyc  |  Bin [31m1283[m -> [32m0[m bytes
+ .../__pycache__/database.cpython-311.pyc     |  Bin [31m1722[m -> [32m0[m bytes
+ .../core/__pycache__/deps.cpython-311.pyc    |  Bin [31m6644[m -> [32m0[m bytes
+ backend/app/core/deps.py                     |  101 [32m+[m[31m-[m
+ backend/app/core/rbac.py                     |   18 [32m+[m[31m-[m
+ backend/app/core/security.py                 |   38 [32m+[m[31m-[m
+ backend/app/main.py                          |   27 [32m+[m[31m-[m
+ backend/app/models/__init__.py               |   30 [32m+[m[31m-[m
+ .../__pycache__/__init__.cpython-311.pyc     |  Bin [31m215[m -> [32m0[m bytes
+ .../__pycache__/article.cpython-311.pyc      |  Bin [31m4396[m -> [32m0[m bytes
+ .../__pycache__/assembly.cpython-311.pyc     |  Bin [31m2696[m -> [32m0[m bytes
+ .../__pycache__/company.cpython-311.pyc      |  Bin [31m2865[m -> [32m0[m bytes
+ .../__pycache__/component.cpython-311.pyc    |  Bin [31m2687[m -> [32m0[m bytes
+ .../models/__pycache__/enums.cpython-311.pyc |  Bin [31m822[m -> [32m0[m bytes
+ .../models/__pycache__/piece.cpython-311.pyc |  Bin [31m7425[m -> [32m0[m bytes
+ .../__pycache__/project.cpython-311.pyc      |  Bin [31m2751[m -> [32m0[m bytes
+ .../models/__pycache__/user.cpython-311.pyc  |  Bin [31m2008[m -> [32m0[m bytes
+ backend/app/models/article.py                |    3 [32m+[m[31m-[m
+ backend/app/models/assembly.py               |    3 [32m+[m[31m-[m
+ backend/app/models/base.py                   |    8 [32m+[m[31m-[m
+ backend/app/models/company.py                |   10 [32m+[m[31m-[m
+ backend/app/models/component.py              |    3 [32m+[m[31m-[m
+ backend/app/models/enums.py                  |   16 [32m+[m
+ backend/app/models/piece.py                  |    3 [32m+[m[31m-[m
+ backend/app/models/project.py                |    3 [32m+[m[31m-[m
+ backend/app/models/user.py                   |    9 [32m+[m[31m-[m
+ .../__pycache__/__init__.cpython-311.pyc     |  Bin [31m251[m -> [32m0[m bytes
+ .../__pycache__/companies.cpython-311.pyc    |  Bin [31m6794[m -> [32m0[m bytes
+ .../__pycache__/sync.cpython-311.pyc         |  Bin [31m5162[m -> [32m0[m bytes
+ .../__pycache__/users.cpython-311.pyc        |  Bin [31m9470[m -> [32m0[m bytes
+ backend/app/repositories/users.py            |    6 [32m+[m
+ .../__pycache__/__init__.cpython-311.pyc     |  Bin [31m286[m -> [32m0[m bytes
+ .../routers/__pycache__/auth.cpython-311.pyc |  Bin [31m7382[m -> [32m0[m bytes
+ .../__pycache__/companies.cpython-311.pyc    |  Bin [31m7746[m -> [32m0[m bytes
+ .../__pycache__/dashboard.cpython-311.pyc    |  Bin [31m6256[m -> [32m0[m bytes
+ .../routers/__pycache__/sync.cpython-311.pyc |  Bin [31m9929[m -> [32m0[m bytes
+ .../__pycache__/users.cpython-311.pyc        |  Bin [31m7617[m -> [32m0[m bytes
+ backend/app/routers/users.py                 |   25 [32m+[m[31m-[m
+ backend/app/schemas/__init__.py              |   4

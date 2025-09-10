@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import get_current_active_user, RoleChecker
+from app.core.security import RoleChecker
+from app.core.deps import get_current_user, CurrentUser
 from app.core.database import get_db
 from app.models import Workstation, User, Company
 from app.schemas import WorkstationCreate, WorkstationUpdate, WorkstationResponse
@@ -21,7 +22,7 @@ allow_system_or_company_admin = RoleChecker(["SystemAdmin", "CompanyAdmin"])
 async def create_workstation(
     workstation_data: WorkstationCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Create a new workstation.
@@ -40,20 +41,20 @@ async def create_workstation(
         404: If the company_guid is not found
         400: If invalid company_guid format
     """
-    allow_system_or_company_admin(current_user.role)
+    allow_system_or_company_admin(current_user["role"])
     
     # Set company_guid from current user if not provided
     if not workstation_data.company_guid:
-        workstation_data.company_guid = current_user.company_guid
+        workstation_data.company_guid = current_user["company_guid"]
     
     # Allow SystemAdmin to create workstations for other companies
-    if current_user.role != "SystemAdmin" and workstation_data.company_guid != current_user.company_guid:
+    if current_user["role"] != "SystemAdmin" and workstation_data.company_guid != current_user["company_guid"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
                 "message": "Cannot create workstation for another company",
                 "company_guid": str(workstation_data.company_guid),
-                "your_company": str(current_user.company_guid)
+                "your_company": str(current_user["company_guid"])
             }
         )
     
@@ -104,7 +105,7 @@ async def get_workstations(
     location: Optional[str] = Query(None, min_length=3, description="Filter by location (substring match)"),
     company_guid: Optional[UUID] = Query(None, description="Filter by company GUID (SystemAdmin only)"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Get all workstations from the current user's company.
@@ -123,14 +124,14 @@ async def get_workstations(
         - Empty list if no workstations match the filters
     """
     # Validate company access
-    if company_guid and company_guid != current_user.company_guid and current_user.role != "SystemAdmin":
+    if company_guid and company_guid != current_user["company_guid"] and current_user["role"] != "SystemAdmin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to access resources from another company"
         )
     
     # Use either the provided company_guid or the user's company_guid
-    effective_company_guid = company_guid if company_guid and current_user.role == "SystemAdmin" else current_user.company_guid
+    effective_company_guid = company_guid if company_guid and current_user["role"] == "SystemAdmin" else current_user["company_guid"]
     
     try:
         stmt = select(Workstation).where(Workstation.company_guid == effective_company_guid)
@@ -155,7 +156,7 @@ async def get_workstations(
 async def get_workstation(
     guid: UUID = Path(..., description="The GUID of the workstation to retrieve"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Get a specific workstation by GUID.
@@ -182,13 +183,13 @@ async def get_workstation(
         )
     
     # Non-system admins can only view workstations from their company
-    if current_user.role != "SystemAdmin" and workstation.company_guid != current_user.company_guid:
+    if current_user["role"] != "SystemAdmin" and workstation.company_guid != current_user["company_guid"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
                 "message": "Not authorized to view workstations from other companies",
                 "workstation_company": str(workstation.company_guid),
-                "your_company": str(current_user.company_guid)
+                "your_company": str(current_user["company_guid"])
             }
         )
     
@@ -200,7 +201,7 @@ async def update_workstation(
     guid: UUID = Path(..., description="The GUID of the workstation to update"),
     workstation_data: WorkstationUpdate = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Update a workstation's information.
@@ -219,7 +220,7 @@ async def update_workstation(
         403: If CompanyAdmin tries to update workstation from another company
         422: If validation fails
     """
-    allow_system_or_company_admin(current_user.role)
+    allow_system_or_company_admin(current_user["role"])
     
     try:
         # Get the workstation to update
@@ -235,13 +236,13 @@ async def update_workstation(
             )
         
         # CompanyAdmin can only update workstations in their company
-        if current_user.role == "CompanyAdmin" and workstation.company_guid != current_user.company_guid:
+        if current_user["role"] == "CompanyAdmin" and workstation.company_guid != current_user["company_guid"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
                     "message": "Not authorized to update workstations from other companies",
                     "workstation_company": str(workstation.company_guid),
-                    "your_company": str(current_user.company_guid)
+                    "your_company": str(current_user["company_guid"])
                 }
             )
         
@@ -272,7 +273,7 @@ async def update_workstation(
 async def delete_workstation(
     guid: UUID = Path(..., description="The GUID of the workstation to deactivate"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Soft delete a workstation by setting is_active to False.
@@ -289,7 +290,7 @@ async def delete_workstation(
         404: If workstation not found
         403: If CompanyAdmin tries to delete workstation from another company
     """
-    allow_system_or_company_admin(current_user.role)
+    allow_system_or_company_admin(current_user["role"])
     
     try:
         # Get the workstation to delete
@@ -305,13 +306,13 @@ async def delete_workstation(
             )
         
         # CompanyAdmin can only delete workstations in their company
-        if current_user.role == "CompanyAdmin" and workstation.company_guid != current_user.company_guid:
+        if current_user["role"] == "CompanyAdmin" and workstation.company_guid != current_user["company_guid"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
                     "message": "Not authorized to delete workstations from other companies",
                     "workstation_company": str(workstation.company_guid),
-                    "your_company": str(current_user.company_guid)
+                    "your_company": str(current_user["company_guid"])
                 }
             )
         

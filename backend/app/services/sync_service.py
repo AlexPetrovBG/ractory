@@ -654,7 +654,7 @@ class SyncService:
         company_guid = result.scalar_one_or_none()
         if company_guid:
             await WorkflowService.create_workflow_entry(
-                action_type=WorkflowActionType.SoftDelete,
+                action_type=WorkflowActionType.SOFT_DELETE,
                 company_guid=company_guid,
                 action_value=f"Soft deleted {entity_type} {guid}",
                 session=session
@@ -725,7 +725,7 @@ class SyncService:
         company_guid = result.scalar_one_or_none()
         if company_guid:
             await WorkflowService.create_workflow_entry(
-                action_type=WorkflowActionType.Restore,
+                action_type=WorkflowActionType.RESTORE,
                 company_guid=company_guid,
                 action_value=f"Restored {entity_type} {guid}",
                 session=session

@@ -164,6 +164,8 @@ async def create_user(db: AsyncSession, user_data: Dict[str, Any]) -> Dict[str, 
     Returns:
         The created user as a dictionary
     """
+    print(f"DEBUG: create_user called with user_data={user_data}")
+    
     # Create new user instance
     user = User(
         email=user_data.get("email"),
@@ -174,10 +176,14 @@ async def create_user(db: AsyncSession, user_data: Dict[str, Any]) -> Dict[str, 
         is_active=user_data.get("is_active", True)
     )
     
+    print(f"DEBUG: Created user object with company_guid={user.company_guid}")
+    
     # Add to session and commit
     db.add(user)
+    print(f"DEBUG: About to commit user creation")
     await db.commit()
     await db.refresh(user)
+    print(f"DEBUG: User creation successful")
     
     return {
         "guid": user.guid,
