@@ -30,7 +30,7 @@ async def csp_middleware(request: Request, call_next):
     if request.url.path in ["/docs", "/redoc", "/openapi.json"]:
         # Allow Swagger UI resources while keeping main app secure
         csp_policy = (
-            "default-src 'self'; "
+            "default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fastapi.tiangolo.com; "
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
