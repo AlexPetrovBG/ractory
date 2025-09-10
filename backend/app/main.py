@@ -30,7 +30,7 @@ async def csp_middleware(request: Request, call_next):
     if request.url.path in ["/docs", "/redoc", "/openapi.json"]:
         # Allow Swagger UI resources while keeping main app secure
         csp_policy = (
-            "default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fastapi.tiangolo.com; "
+            "default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fastapi.tiangolo.com data:; "
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
@@ -46,10 +46,12 @@ async def csp_middleware(request: Request, call_next):
             del response.headers["X-Content-Security-Policy"]
         if "X-WebKit-CSP" in response.headers:
             del response.headers["X-WebKit-CSP"]
-        # Set our CSP headers
+        # Set our CSP headers multiple times to ensure precedence
         response.headers["Content-Security-Policy"] = csp_policy
         response.headers["X-Content-Security-Policy"] = csp_policy
         response.headers["X-WebKit-CSP"] = csp_policy
+        # Add it again to try to override nginx
+        response.headers["Content-Security-Policy"] = csp_policy
     else:
         # Keep strict CSP for main API endpoints
         response.headers["Content-Security-Policy"] = "default-src 'self'"
