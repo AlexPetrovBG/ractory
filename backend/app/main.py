@@ -32,7 +32,9 @@ async def csp_middleware(request: Request, call_next):
         csp_policy = (
             "default-src 'self'; "
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "script-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "img-src 'self' data: https://fastapi.tiangolo.com; "
             "font-src 'self' https://cdn.jsdelivr.net; "
             "connect-src 'self'"
