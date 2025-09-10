@@ -38,9 +38,12 @@ async def csp_middleware(request: Request, call_next):
             "connect-src 'self'"
         )
         # Remove any existing CSP headers first, then set our own
-        response.headers.pop("Content-Security-Policy", None)
-        response.headers.pop("X-Content-Security-Policy", None)
-        response.headers.pop("X-WebKit-CSP", None)
+        if "Content-Security-Policy" in response.headers:
+            del response.headers["Content-Security-Policy"]
+        if "X-Content-Security-Policy" in response.headers:
+            del response.headers["X-Content-Security-Policy"]
+        if "X-WebKit-CSP" in response.headers:
+            del response.headers["X-WebKit-CSP"]
         # Set our CSP headers
         response.headers["Content-Security-Policy"] = csp_policy
         response.headers["X-Content-Security-Policy"] = csp_policy
