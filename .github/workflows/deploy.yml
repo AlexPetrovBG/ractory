@@ -146,6 +146,7 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          no-cache: true
 
       - name: Deploy to Production Server
         uses: appleboy/ssh-action@master
@@ -163,29 +164,25 @@ jobs:
             echo "📥 Pulling latest code..."
             git pull origin main || echo "Git pull failed, continuing with existing code"
             
-                         # Update docker-compose to use registry image
-             echo "🔧 Updating docker-compose for registry image..."
-             sed -i 's|build: ./backend|image: ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:${{ github.sha }}|g' docker-compose.yml
+            # Update docker-compose to use registry image for api_prod (robust replace)
+            echo "🔧 Updating docker-compose for registry image..."
+            sed -i "s|image: .*ra-factory-api.*|image: ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:${{ github.sha }}|g" docker-compose.yml
             
             # Pull the new image
             echo "📦 Pulling new Docker image..."
             docker pull ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:${{ github.sha }}
             
-            # Stop current containers gracefully
-            echo "⏸️ Stopping current containers..."
-            docker compose down --timeout 30
-            
-            # Start new containers
-            echo "🔄 Starting new containers..."
-            docker compose up -d
+            # Start new containers (prod profile), force recreate only API
+            echo "🔄 Starting api_prod with new image (prod profile)..."
+            docker compose --profile prod up -d --no-deps --force-recreate api_prod
             
             # Wait for API to be ready
             echo "⏳ Waiting for API to be ready..."
             sleep 30
             
-            # Run database migrations
-            echo "🗄️ Running database migrations..."
-            docker compose exec -T api alembic upgrade head
+            # Run database migrations against api_prod
+            echo "🗄️ Running database migrations (api_prod)..."
+            docker compose exec -T api_prod alembic upgrade head
             
             # Clean up old images (keep last 3 versions)
             echo "🧹 Cleaning up old images..."
@@ -244,7 +241,7 @@ jobs:
             if [ ! -z "$previous_image" ] && [ "$previous_image" != "${{ github.sha }}" ]; then
               echo "🔄 Rolling back to previous image: $previous_image"
               sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:${{ github.sha }}|image: ${{ secrets.DOCKER_USERNAME }}/ra-factory-api:$previous_image|g" docker-compose.yml
-              docker compose up -d --force-recreate
+              docker compose --profile prod up -d --force-recreate
               echo "⚠️ Rollback completed. Please check the application manually."
             else
               echo "❌ No previous image found for rollback. Manual intervention required."

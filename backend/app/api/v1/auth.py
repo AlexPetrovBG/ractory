@@ -12,7 +12,8 @@ from app.services.auth_service import AuthService
 from app.utils.security import decode_token
 from app.models.enums import UserRole
 from app.core.rbac import require_system_admin
-from app.core.deps import get_current_user, CurrentUser, get_session, get_db_user
+from app.core.deps import get_current_user, CurrentUser
+from app.models.base import get_session
 from app.models.user import User
 from app.models.workstation import Workstation
 
