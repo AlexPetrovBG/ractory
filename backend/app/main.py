@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.exceptions import RequestValidationError
 
 from app.core.config import settings
@@ -20,6 +20,29 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
     allow_headers=["*"],
 )
+
+# Custom middleware to handle CSP for documentation
+@app.middleware("http")
+async def csp_middleware(request: Request, call_next):
+    response = await call_next(request)
+    
+    # Only modify CSP for documentation endpoints
+    if request.url.path in ["/docs", "/redoc", "/openapi.json"]:
+        # Allow Swagger UI resources while keeping main app secure
+        csp_policy = (
+            "default-src 'self'; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "img-src 'self' data: https://fastapi.tiangolo.com; "
+            "font-src 'self' https://cdn.jsdelivr.net; "
+            "connect-src 'self'"
+        )
+        response.headers["Content-Security-Policy"] = csp_policy
+    else:
+        # Keep strict CSP for main API endpoints
+        response.headers["Content-Security-Policy"] = "default-src 'self'"
+    
+    return response
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
