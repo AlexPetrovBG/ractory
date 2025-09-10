@@ -37,7 +37,11 @@ async def csp_middleware(request: Request, call_next):
             "font-src 'self' https://cdn.jsdelivr.net; "
             "connect-src 'self'"
         )
-        # Override any existing CSP headers
+        # Remove any existing CSP headers first, then set our own
+        response.headers.pop("Content-Security-Policy", None)
+        response.headers.pop("X-Content-Security-Policy", None)
+        response.headers.pop("X-WebKit-CSP", None)
+        # Set our CSP headers
         response.headers["Content-Security-Policy"] = csp_policy
         response.headers["X-Content-Security-Policy"] = csp_policy
         response.headers["X-WebKit-CSP"] = csp_policy
@@ -103,6 +107,7 @@ async def custom_docs():
     <!DOCTYPE html>
     <html>
     <head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://fastapi.tiangolo.com; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self'">
     <link type="text/css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css">
     <link rel="shortcut icon" href="https://fastapi.tiangolo.com/img/favicon.png">
     <title>Ra Factory API - Swagger UI</title>
@@ -129,13 +134,4 @@ async def custom_docs():
     </body>
     </html>
     """
-    return HTMLResponse(content=html_content, headers={
-        "Content-Security-Policy": (
-            "default-src 'self'; "
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-            "img-src 'self' data: https://fastapi.tiangolo.com; "
-            "font-src 'self' https://cdn.jsdelivr.net; "
-            "connect-src 'self'"
-        )
-    }) 
+    return HTMLResponse(content=html_content) 
